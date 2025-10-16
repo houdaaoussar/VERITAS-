@@ -1,10 +1,12 @@
 import fs from 'fs';
 import csv from 'csv-parser';
+import ExcelJS from 'exceljs';
+import path from 'path';
 import { logger } from '../utils/logger';
 
 /**
- * Intelligent CSV Parser
- * Scans entire CSV to find data based on content patterns, not just column positions
+ * Intelligent Parser for CSV and Excel Files
+ * Scans entire file to find data based on content patterns, not just column positions
  */
 
 export interface IntelligentParseResult {
@@ -68,9 +70,25 @@ export class IntelligentCSVParser {
   };
 
   /**
-   * Parse CSV intelligently - scan all cells for patterns
+   * Parse file intelligently - scan all cells for patterns
+   * Supports both CSV and Excel files
    */
   static async parseIntelligently(filePath: string): Promise<IntelligentParseResult[]> {
+    const ext = path.extname(filePath).toLowerCase();
+    
+    if (ext === '.csv') {
+      return this.parseCSVIntelligently(filePath);
+    } else if (ext === '.xlsx' || ext === '.xls') {
+      return this.parseExcelIntelligently(filePath);
+    } else {
+      throw new Error(`Unsupported file format: ${ext}`);
+    }
+  }
+
+  /**
+   * Parse CSV intelligently - scan all cells for patterns
+   */
+  private static async parseCSVIntelligently(filePath: string): Promise<IntelligentParseResult[]> {
     return new Promise((resolve, reject) => {
       const results: IntelligentParseResult[] = [];
       const allRows: any[] = [];
@@ -94,6 +112,49 @@ export class IntelligentCSVParser {
         })
         .on('error', reject);
     });
+  }
+
+  /**
+   * Parse Excel intelligently - scan all cells for patterns
+   */
+  private static async parseExcelIntelligently(filePath: string): Promise<IntelligentParseResult[]> {
+    const workbook = new ExcelJS.Workbook();
+    await workbook.xlsx.readFile(filePath);
+    
+    const worksheet = workbook.getWorksheet(1);
+    if (!worksheet) {
+      throw new Error('No worksheet found in Excel file');
+    }
+
+    const results: IntelligentParseResult[] = [];
+    const allRows: any[] = [];
+
+    // Extract all rows as objects
+    worksheet.eachRow((row, rowNumber) => {
+      const rowData: any = {};
+      let colIndex = 0;
+      
+      row.eachCell((cell, colNumber) => {
+        const key = `col_${colNumber}`;
+        rowData[key] = cell.value;
+        colIndex++;
+      });
+      
+      if (colIndex > 0) {
+        allRows.push(rowData);
+      }
+    });
+
+    // Process all rows
+    allRows.forEach((row, rowIndex) => {
+      const parsed = this.parseRowIntelligently(row, rowIndex + 1);
+      if (parsed) {
+        results.push(parsed);
+      }
+    });
+
+    logger.info(`Excel intelligent parsing completed: ${results.length} activities found from ${allRows.length} rows`);
+    return results;
   }
 
   /**
