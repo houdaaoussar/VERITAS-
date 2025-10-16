@@ -1,7 +1,7 @@
 import React, { useState, useCallback, useRef } from 'react';
 import { useQuery, useMutation, useQueryClient } from 'react-query';
 import { useAuth } from '../contexts/AuthContext';
-import { sitesApi, periodsApi } from '../services/api';
+import api, { sitesApi, periodsApi } from '../services/api';
 import { 
   CloudArrowUpIcon, 
   DocumentIcon,
@@ -119,14 +119,12 @@ export const EmissionsInventoryUploadPage: React.FC = () => {
     formData.append('autoCreate', 'true');
 
     try {
-      const token = localStorage.getItem('token');
-      const response = await axios.post<UploadResponse>(
-        `http://houdaproject-prod.eba-mqp9cwkd.us-west-2.elasticbeanstalk.com/api/emissions-inventory/upload`,
+      const response = await api.post<UploadResponse>(
+        `/emissions-inventory/upload`,
         formData,
         {
           headers: {
-            'Content-Type': 'multipart/form-data',
-            'Authorization': `Bearer ${token}`
+            'Content-Type': 'multipart/form-data'
           }
         }
       );
@@ -146,17 +144,11 @@ export const EmissionsInventoryUploadPage: React.FC = () => {
 
     setIsParsing(true);
     try {
-      const token = localStorage.getItem('token');
-      const response = await axios.post<ParseResponse>(
-        `http://houdaproject-prod.eba-mqp9cwkd.us-west-2.elasticbeanstalk.com/api/emissions-inventory/${uploadedFile.uploadId}/parse`,
+      const response = await api.post<ParseResponse>(
+        `/emissions-inventory/${uploadedFile.uploadId}/parse`,
         {
           hasHeaders: true,
           skipRows: 0
-        },
-        {
-          headers: {
-            'Authorization': `Bearer ${token}`
-          }
         }
       );
 
@@ -180,16 +172,10 @@ export const EmissionsInventoryUploadPage: React.FC = () => {
 
     setIsImporting(true);
     try {
-      const token = localStorage.getItem('token');
-      const response = await axios.post<ImportResponse>(
-        `http://houdaproject-prod.eba-mqp9cwkd.us-west-2.elasticbeanstalk.com/api/emissions-inventory/${uploadedFile.uploadId}/import`,
+      const response = await api.post<ImportResponse>(
+        `/emissions-inventory/${uploadedFile.uploadId}/import`,
         {
           skipErrors: true
-        },
-        {
-          headers: {
-            'Authorization': `Bearer ${token}`
-          }
         }
       );
 

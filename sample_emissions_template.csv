@@ -1,0 +1,9 @@
+Inventory Year,CRF Sector,CRF Sub-Sector,Scope,Fuel Type or Activity,Activity Data Amount,Activity Data Unit,Description
+2024,Energy,Stationary Combustion,Scope 1,Natural Gas,1500,m³,Office heating - Main building
+2024,Energy,Purchased Electricity,Scope 2,Electricity,25000,kWh,Office electricity consumption
+2024,Transport,Mobile Combustion,Scope 1,Diesel,800,liters,Company fleet vehicles
+2024,Transport,Mobile Combustion,Scope 1,Petrol,500,liters,Company cars
+2024,Energy,District Heating,Scope 2,District Heating,5000,kWh,Building heating system
+2024,Energy,Stationary Combustion,Scope 1,LPG,200,kg,Backup generator
+2024,Waste,Solid Waste Disposal,Scope 3,Waste,1200,kg,General office waste
+2024,Transport,Business Travel,Scope 3,Air Travel,5000,km,Employee business flights

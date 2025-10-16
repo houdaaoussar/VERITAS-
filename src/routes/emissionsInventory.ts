@@ -7,6 +7,7 @@ import Joi from 'joi';
 import { createError } from '../middleware/errorHandler';
 import { authenticateToken, requireRole, AuthenticatedRequest } from '../middleware/auth';
 import { EmissionsInventoryParser, ColumnMapping } from '../services/emissionsInventoryParser';
+import { IntelligentCSVParser } from '../services/intelligentCSVParser';
 import { logger } from '../utils/logger';
 
 const router = express.Router();
@@ -534,6 +535,182 @@ router.get('/:id/column-detection',
         headers,
         detectedMapping,
         message: 'Column detection completed. Review and adjust mapping as needed.'
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+);
+
+/**
+ * POST /api/emissions-inventory/:id/intelligent-parse
+ * Intelligently parse CSV by scanning all cells for patterns
+ */
+router.post('/:id/intelligent-parse', 
+  authenticateToken, 
+  async (req: AuthenticatedRequest, res, next) => {
+    try {
+      const { id } = req.params;
+
+      const upload = await prisma.upload.findUnique({
+        where: { id }
+      });
+
+      if (!upload) {
+        throw createError('Upload not found', 404, 'UPLOAD_NOT_FOUND');
+      }
+
+      // Check access permissions
+      if (req.user?.role !== 'ADMIN' && req.user?.customerId !== upload.customerId) {
+        throw createError('Access denied', 403, 'FORBIDDEN');
+      }
+
+      const filePath = path.join(uploadDir, upload.s3Key!);
+      if (!fs.existsSync(filePath)) {
+        throw createError('File not found', 404, 'FILE_NOT_FOUND');
+      }
+
+      // Update status to PROCESSING
+      await prisma.upload.update({
+        where: { id },
+        data: { status: 'PROCESSING' },
+      });
+
+      // Parse intelligently
+      const results = await IntelligentCSVParser.parseIntelligently(filePath);
+      const summary = IntelligentCSVParser.getSummary(results);
+
+      // Store results
+      await prisma.upload.update({
+        where: { id },
+        data: {
+          status: results.length > 0 ? 'COMPLETED' : 'FAILED',
+          validationResults: JSON.stringify({
+            method: 'intelligent',
+            summary,
+            results: results.slice(0, 20) // Store first 20 results
+          }),
+        },
+      });
+
+      logger.info('Intelligent CSV parsing completed', {
+        uploadId: id,
+        totalFound: summary.totalFound,
+        highConfidence: summary.highConfidence,
+        averageConfidence: summary.averageConfidence
+      });
+
+      res.json({
+        uploadId: id,
+        method: 'intelligent',
+        summary,
+        results: results.map(r => ({
+          activityType: r.activityType,
+          quantity: r.quantity,
+          unit: r.unit,
+          year: r.year,
+          scope: r.scope,
+          confidence: r.confidence,
+          sourceRow: r.sourceRow
+        })),
+        message: `Found ${summary.totalFound} activities with ${summary.highConfidence} high-confidence matches`
+      });
+    } catch (error) {
+      // Update upload status to FAILED
+      if (req.params.id) {
+        await prisma.upload.update({
+          where: { id: req.params.id },
+          data: { status: 'FAILED' },
+        }).catch(() => {});
+      }
+      next(error);
+    }
+  }
+);
+
+/**
+ * POST /api/emissions-inventory/:id/intelligent-import
+ * Import intelligently parsed data
+ */
+router.post('/:id/intelligent-import', 
+  authenticateToken, 
+  requireRole(['ADMIN', 'EDITOR']), 
+  async (req: AuthenticatedRequest, res, next) => {
+    try {
+      const { id } = req.params;
+      const { minConfidence = 0.5 } = req.body;
+
+      const upload = await prisma.upload.findUnique({
+        where: { id },
+        include: {
+          site: true,
+          period: true
+        }
+      });
+
+      if (!upload) {
+        throw createError('Upload not found', 404, 'UPLOAD_NOT_FOUND');
+      }
+
+      // Check access permissions
+      if (req.user?.role !== 'ADMIN' && req.user?.customerId !== upload.customerId) {
+        throw createError('Access denied', 403, 'FORBIDDEN');
+      }
+
+      const filePath = path.join(uploadDir, upload.s3Key!);
+      if (!fs.existsSync(filePath)) {
+        throw createError('File not found', 404, 'FILE_NOT_FOUND');
+      }
+
+      // Parse intelligently
+      const results = await IntelligentCSVParser.parseIntelligently(filePath);
+      
+      // Convert to activity data
+      const activityData = IntelligentCSVParser.toActivityData(
+        results,
+        upload.siteId,
+        upload.periodId,
+        minConfidence
+      );
+
+      if (activityData.length === 0) {
+        throw createError('No valid activities found with sufficient confidence', 400, 'NO_VALID_ACTIVITIES');
+      }
+
+      // Import activities
+      const imported = await prisma.activity.createMany({
+        data: activityData.map(activity => ({
+          ...activity,
+          uploadId: upload.id
+        }))
+      });
+
+      // Update upload status
+      await prisma.upload.update({
+        where: { id },
+        data: { status: 'imported' }
+      });
+
+      logger.info('Intelligent CSV import completed', {
+        uploadId: id,
+        totalParsed: results.length,
+        imported: imported.count,
+        minConfidence,
+        importedBy: req.user?.id
+      });
+
+      res.json({
+        uploadId: id,
+        method: 'intelligent',
+        totalParsed: results.length,
+        totalImported: imported.count,
+        minConfidence,
+        message: `Successfully imported ${imported.count} activities using intelligent parsing`,
+        nextSteps: [
+          'Review imported activities in the Activities page',
+          'Run calculations to compute emissions',
+          'Generate reports for stakeholders'
+        ]
       });
     } catch (error) {
       next(error);

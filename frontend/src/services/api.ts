@@ -17,8 +17,9 @@ import {
   ReportingPeriod
 } from '../types'
 
-// API Base URL - update this when deploying
-const API_BASE_URL = 'http://houdaproject-prod.eba-mqp9cwkd.us-west-2.elasticbeanstalk.com';
+// API Base URL - configurable via Vite env, defaults to local API
+const API_BASE_URL = (import.meta as any).env?.VITE_API_BASE_URL || 'http://localhost:3002';
+export { API_BASE_URL };
 
 // Create axios instance
 const api = axios.create({
