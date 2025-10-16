@@ -1,0 +1,11 @@
+node_modules/
+.env
+dev.db
+*.log
+.git/
+uploads/
+*.sqlite
+.vscode/
+.idea/
+frontend/node_modules/
+frontend/dist/

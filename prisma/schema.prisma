@@ -1,0 +1,274 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mongodb"
+  url      = env("DATABASE_URL")
+}
+
+model Customer {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  name      String
+  code      String   @unique
+  category  String?
+  level     String?
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  // Relationships
+  sites            Site[]
+  users            User[]
+  reportingPeriods ReportingPeriod[]
+  uploads          Upload[]
+  calcRuns         CalcRun[]
+  projects         Project[]
+
+  @@map("customers")
+}
+
+model Site {
+  id            String   @id @default(auto()) @map("_id") @db.ObjectId
+  customerId    String   @db.ObjectId @map("customer_id")
+  name          String
+  description   String?
+  address       String?
+  city          String?
+  state         String?
+  region        String?
+  country       String
+  postalCode    String?  @map("postal_code")
+  siteType      String?  @map("site_type")
+  floorArea     Float?   @map("floor_area")
+  employeeCount Int?     @map("employee_count")
+  contactName   String?  @map("contact_name")
+  contactEmail  String?  @map("contact_email")
+  contactPhone  String?  @map("contact_phone")
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  // Relationships
+  customer   Customer    @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  activities Activity[]
+  projects   Project[]
+  uploads    Upload[]
+
+  @@map("sites")
+}
+
+// UserRole as string instead of enum for SQLite compatibility
+
+model User {
+  id         String   @id @default(auto()) @map("_id") @db.ObjectId
+  email      String   @unique
+  password   String
+  role       String // ADMIN, EDITOR, VIEWER
+  customerId String   @db.ObjectId @map("customer_id")
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  // Relationships
+  customer Customer   @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  uploads  Upload[]
+  calcRuns CalcRun[]
+  auditLog AuditLog[]
+
+  @@map("users")
+}
+
+// PeriodStatus as string instead of enum for SQLite compatibility
+
+model ReportingPeriod {
+  id         String       @id @default(auto()) @map("_id") @db.ObjectId
+  customerId String       @db.ObjectId @map("customer_id")
+  fromDate   DateTime     @map("from_date")
+  toDate     DateTime     @map("to_date")
+  year       Int
+  quarter    Int?
+  status     String @default("OPEN") // OPEN, CLOSED, ARCHIVED
+  createdAt  DateTime     @default(now()) @map("created_at")
+  updatedAt  DateTime     @updatedAt @map("updated_at")
+
+  // Relationships
+  customer   Customer   @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  activities Activity[]
+  calcRuns   CalcRun[]
+  uploads    Upload[]
+
+  @@map("reporting_periods")
+}
+
+model Upload {
+  id         String   @id @default(auto()) @map("_id") @db.ObjectId
+  customerId String   @db.ObjectId @map("customer_id")
+  siteId     String?  @db.ObjectId @map("site_id")
+  periodId   String?  @db.ObjectId @map("period_id")
+  originalFilename String @map("original_filename")
+  filename   String
+  s3Key      String?  @map("s3_key")
+  uploadedBy String   @db.ObjectId @map("uploaded_by")
+  uploadedAt DateTime @default(now()) @map("uploaded_at")
+  status     String   @default("pending")
+  errorCount Int      @default(0) @map("error_count")
+  validationResults String?  @map("validation_results") // Stored as a JSON string
+  updatedAt  DateTime @updatedAt @map("updated_at")
+  
+  // Relationships
+  customer   Customer        @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  site       Site?           @relation(fields: [siteId], references: [id])
+  period     ReportingPeriod? @relation(fields: [periodId], references: [id])
+  uploader   User            @relation(fields: [uploadedBy], references: [id])
+  activities Activity[]
+
+  @@map("uploads")
+}
+
+// ActivityType as string instead of enum for SQLite compatibility
+
+model Activity {
+  id                String    @id @default(auto()) @map("_id") @db.ObjectId
+  siteId            String    @db.ObjectId @map("site_id")
+  periodId          String    @db.ObjectId @map("period_id")
+  type              String // ELECTRICITY, NATURAL_GAS, DIESEL, etc.
+  quantity          Float
+  unit              String
+  activityDateStart DateTime  @map("activity_date_start")
+  activityDateEnd   DateTime  @map("activity_date_end")
+  source            String?
+  uploadId          String?   @db.ObjectId @map("upload_id")
+  notes             String?
+  createdAt         DateTime  @default(now()) @map("created_at")
+  updatedAt         DateTime  @updatedAt @map("updated_at")
+
+  // Relationships
+  site            Site              @relation(fields: [siteId], references: [id], onDelete: Cascade)
+  period          ReportingPeriod   @relation(fields: [periodId], references: [id], onDelete: Cascade)
+  upload          Upload?           @relation(fields: [uploadId], references: [id])
+  emissionResults EmissionResult[]
+
+  @@index([siteId, periodId, type, activityDateStart])
+  @@map("activities")
+}
+
+model EmissionFactor {
+  id            String   @id @default(auto()) @map("_id") @db.ObjectId
+  category      String
+  geography     String
+  year          Int
+  inputUnit     String   @map("input_unit")
+  outputUnit    String   @map("output_unit")
+  value         Float
+  sourceName    String   @map("source_name")
+  sourceVersion String   @map("source_version")
+  gwpVersion    String   @map("gwp_version")
+  validFrom     DateTime @map("valid_from")
+  validTo       DateTime? @map("valid_to")
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  // Relationships
+  emissionResults EmissionResult[]
+
+  @@map("emission_factors")
+}
+
+// CalcRunStatus as string instead of enum for SQLite compatibility
+
+model CalcRun {
+  id                   String        @id @default(auto()) @map("_id") @db.ObjectId
+  customerId           String        @db.ObjectId @map("customer_id")
+  periodId             String        @db.ObjectId @map("period_id")
+  factorLibraryVersion String        @map("factor_library_version")
+  requestedBy          String        @db.ObjectId @map("requested_by")
+  status               String @default("PENDING") // PENDING, RUNNING, COMPLETED, FAILED
+  createdAt            DateTime      @default(now()) @map("created_at")
+  completedAt          DateTime?     @map("completed_at")
+  errorMessage         String?       @map("error_message")
+
+  // Relationships
+  customer        Customer         @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  period          ReportingPeriod  @relation(fields: [periodId], references: [id], onDelete: Cascade)
+  requester       User             @relation(fields: [requestedBy], references: [id])
+  emissionResults EmissionResult[]
+
+  @@map("calc_runs")
+}
+
+// EmissionScope as string instead of enum for SQLite compatibility
+
+model EmissionResult {
+  id           String       @id @default(auto()) @map("_id") @db.ObjectId
+  calcRunId    String       @db.ObjectId @map("calc_run_id")
+  activityId   String       @db.ObjectId @map("activity_id")
+  scope        String // SCOPE_1, SCOPE_2, SCOPE_3
+  method       String
+  quantityBase Float        @map("quantity_base")
+  unitBase     String       @map("unit_base")
+  factorId     String       @db.ObjectId @map("factor_id")
+  resultKgCo2e Float        @map("result_kgco2e")
+  uncertainty  Float?
+  createdAt    DateTime     @default(now()) @map("created_at")
+
+  // Relationships
+  calcRun  CalcRun        @relation(fields: [calcRunId], references: [id], onDelete: Cascade)
+  activity Activity       @relation(fields: [activityId], references: [id], onDelete: Cascade)
+  factor   EmissionFactor @relation(fields: [factorId], references: [id])
+
+  @@map("emission_results")
+}
+
+// ProjectLifecycle as string instead of enum for SQLite compatibility
+
+model Project {
+  id                     String            @id @default(auto()) @map("_id") @db.ObjectId
+  customerId             String            @db.ObjectId @map("customer_id")
+  siteId                 String?           @db.ObjectId @map("site_id")
+  type                   String
+  description            String
+  startDate              DateTime          @map("start_date")
+  lifecycleState         String @map("lifecycle_state") @default("PLANNED") // PLANNED, ACTIVE, COMPLETED, ARCHIVED
+  estAnnualSavingKgCo2e  Float            @map("est_annual_saving_kgco2e")
+  createdAt              DateTime          @default(now()) @map("created_at")
+  updatedAt              DateTime          @updatedAt @map("updated_at")
+
+  // Relationships
+  customer       Customer        @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  site           Site?           @relation(fields: [siteId], references: [id])
+  projectActuals ProjectActual[]
+
+  @@map("projects")
+}
+
+model ProjectActual {
+  id                   String   @id @default(auto()) @map("_id") @db.ObjectId
+  projectId            String   @db.ObjectId @map("project_id")
+  year                 Int
+  actualSavingKgCo2e   Float    @map("actual_saving_kgco2e")
+  createdAt            DateTime @default(now()) @map("created_at")
+  updatedAt            DateTime @updatedAt @map("updated_at")
+
+  // Relationships
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@index([projectId, year])
+  @@map("project_actuals")
+}
+
+model AuditLog {
+  id         String   @id @default(auto()) @map("_id") @db.ObjectId
+  actor      String
+  action     String
+  entityType String   @map("entity_type")
+  entityId   String   @map("entity_id")
+  beforeJson String?  @map("before_json") // JSON as string for SQLite
+  afterJson  String?  @map("after_json")  // JSON as string for SQLite
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  // Relationships
+  user User @relation(fields: [actor], references: [id])
+
+  @@map("audit_log")
+}
