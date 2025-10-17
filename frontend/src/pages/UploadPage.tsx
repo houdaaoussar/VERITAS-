@@ -21,6 +21,7 @@ export const UploadPage: React.FC = () => {
   const [currentUploadId, setCurrentUploadId] = useState<string | null>(null)
   const [parsedData, setParsedData] = useState<any>(null)
   const [selectedPeriodForImport, setSelectedPeriodForImport] = useState('')
+  const [ingestData, setIngestData] = useState<any>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   // Fetch uploads
@@ -53,6 +54,10 @@ export const UploadPage: React.FC = () => {
   const uploadMutation = useMutation(uploadsApi.uploadFile, {
     onSuccess: (data) => {
       setCurrentUploadId(data.uploadId);
+      // Store the ingest data if available
+      if (data.ingestData) {
+        setIngestData(data.ingestData);
+      }
       toast.success('File uploaded, now parsing...');
       parseMutation.mutate(data.uploadId);
     },
@@ -64,12 +69,18 @@ export const UploadPage: React.FC = () => {
   // Import activities mutation
   const importMutation = useMutation(uploadsApi.importActivities, {
     onSuccess: () => {
+      // Save parsed data to localStorage for calculator
+      if (parsedData && parsedData.sample) {
+        localStorage.setItem('uploadedEmissionData', JSON.stringify(parsedData.sample));
+        toast.success('Activities imported successfully! Data is now available in the Calculator.');
+      } else {
+        toast.success('Activities imported successfully');
+      }
       queryClient.invalidateQueries(['uploads'])
       queryClient.invalidateQueries(['activities'])
       setParsedData(null)
       setCurrentUploadId(null)
       setSelectedPeriodForImport('')
-      toast.success('Activities imported successfully')
     },
     onError: (error: any) => {
       toast.error(error.response?.data?.error || 'Failed to import activities')
@@ -333,7 +344,11 @@ export const UploadPage: React.FC = () => {
                 <div className="bg-red-50 border border-red-200 rounded-lg p-4 max-h-60 overflow-y-auto">
                   {parsedData.errors.map((error: any, idx: number) => (
                     <div key={idx} className="text-sm text-red-800 mb-2">
-                      <strong>Row {error.rowIndex}:</strong> {error.errors?.join(', ')}
+                      <strong>Row {error.row_index || error.rowIndex}:</strong> {
+                        Array.isArray(error.errors) 
+                          ? error.errors.map((e: any) => typeof e === 'string' ? e : JSON.stringify(e)).join(', ')
+                          : JSON.stringify(error.errors || error)
+                      }
                     </div>
                   ))}
                 </div>

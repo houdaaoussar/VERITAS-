@@ -24,6 +24,41 @@ const periodSchema = Joi.object({
 const router = express.Router();
 const prisma = new PrismaClient();
 
+// Test endpoint - Get periods without auth (for development)
+router.get('/test', async (req, res, next) => {
+  try {
+    // Return mock periods for testing
+    const mockPeriods = [
+      {
+        id: 'mock-period-1',
+        customerId: 'mock-customer-id',
+        year: 2024,
+        quarter: 1,
+        fromDate: '2024-01-01T00:00:00.000Z',
+        toDate: '2024-03-31T23:59:59.999Z',
+        status: 'OPEN',
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      },
+      {
+        id: 'mock-period-2',
+        customerId: 'mock-customer-id',
+        year: 2024,
+        quarter: 2,
+        fromDate: '2024-04-01T00:00:00.000Z',
+        toDate: '2024-06-30T23:59:59.999Z',
+        status: 'OPEN',
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      }
+    ];
+    
+    res.json(mockPeriods);
+  } catch (error) {
+    next(error);
+  }
+});
+
 router.get('/', authenticateToken, async (req: AuthenticatedRequest, res, next) => {
   try {
     const { customerId } = req.query;

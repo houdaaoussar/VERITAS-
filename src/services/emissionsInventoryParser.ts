@@ -78,35 +78,50 @@ export interface ParseOptions {
 export class EmissionsInventoryParser {
   
   /**
-   * Auto-detect column headers from first row
+   * Auto-detect column headers from first row - flexible approach
    */
   static detectColumns(headers: string[]): ColumnMapping {
     const mapping: ColumnMapping = {};
     
+    // More flexible patterns that match common variations
     const patterns = {
-      inventoryYear: /inventory.*year|year/i,
-      gpcRefNo: /gpc.*ref|gpc.*no|reference.*no/i,
-      crfSector: /crf.*sector|sector/i,
-      crfSubSector: /crf.*sub.*sector|sub.*sector/i,
-      scope: /scope/i,
-      fuelTypeOrActivity: /fuel.*type|activity|fuel.*activity/i,
-      notationKey: /notation.*key|notation/i,
-      activityDataAmount: /activity.*data.*amount|amount|quantity/i,
-      activityDataUnit: /activity.*data.*unit|unit/i,
-      description: /description|desc|notes/i
+      inventoryYear: /inventory.*year|year|date.*year|reporting.*year/i,
+      gpcRefNo: /gpc.*ref|gpc.*no|reference.*no|ref.*no|gpc/i,
+      crfSector: /crf.*sector|sector|category|industry/i,
+      crfSubSector: /crf.*sub.*sector|sub.*sector|sub.*category/i,
+      scope: /scope|emission.*scope|ghg.*scope/i,
+      fuelTypeOrActivity: /fuel.*type|activity|fuel.*activity|energy.*type|fuel|energy/i,
+      notationKey: /notation.*key|notation|key|flag/i,
+      activityDataAmount: /activity.*data.*amount|amount|quantity|value|consumption|usage/i,
+      activityDataUnit: /activity.*data.*unit|unit|units|measurement/i,
+      description: /description|desc|notes|comment|remarks/i
     };
 
     headers.forEach(header => {
       const cleanHeader = header.trim();
       
+      // Try exact match first
       for (const [key, pattern] of Object.entries(patterns)) {
         if (pattern.test(cleanHeader)) {
           mapping[key as keyof ColumnMapping] = cleanHeader;
+          break; // Use first match
         }
       }
     });
 
-    logger.info('Auto-detected column mapping', { mapping });
+    // If no specific mappings found, try to map by position/order
+    if (Object.keys(mapping).length === 0) {
+      logger.info('No pattern matches found, attempting positional mapping');
+      
+      // Try to map first few columns to common fields
+      if (headers.length > 0) mapping.inventoryYear = headers[0];
+      if (headers.length > 1) mapping.fuelTypeOrActivity = headers[1];
+      if (headers.length > 2) mapping.activityDataAmount = headers[2];
+      if (headers.length > 3) mapping.activityDataUnit = headers[3];
+      if (headers.length > 4) mapping.scope = headers[4];
+    }
+
+    logger.info('Auto-detected column mapping', { mapping, totalHeaders: headers.length });
     return mapping;
   }
 
@@ -203,7 +218,7 @@ export class EmissionsInventoryParser {
   }
 
   /**
-   * Parse individual row
+   * Parse individual row - flexible approach
    */
   private static parseRow(
     data: any,
@@ -223,17 +238,21 @@ export class EmissionsInventoryParser {
         }
       }
 
-      // Parse and validate inventory year
+      // Parse and validate inventory year (optional)
       if (raw.inventoryYear) {
         const year = this.parseYear(raw.inventoryYear);
         if (year) {
           mapped.inventoryYear = year;
         } else {
-          errors.push(`Invalid inventory year: ${raw.inventoryYear}`);
+          warnings.push(`Could not parse year: ${raw.inventoryYear}`);
         }
+      } else {
+        // Default to current year if no year provided
+        mapped.inventoryYear = new Date().getFullYear();
+        warnings.push('No year provided, using current year');
       }
 
-      // Parse sector and sub-sector
+      // Parse sector and sub-sector (optional)
       if (raw.crfSector) {
         mapped.sector = this.cleanString(raw.crfSector);
       }
@@ -241,17 +260,34 @@ export class EmissionsInventoryParser {
         mapped.subSector = this.cleanString(raw.crfSubSector);
       }
 
-      // Parse scope
+      // Parse scope (optional, try to infer)
       if (raw.scope) {
         mapped.scope = this.parseScope(raw.scope);
+      } else {
+        // Try to infer scope from activity type
+        mapped.scope = this.inferScopeFromActivity(raw.fuelTypeOrActivity);
       }
 
-      // Parse activity type from fuel type or activity
+      // Parse activity type from fuel type or activity (required)
       if (raw.fuelTypeOrActivity) {
         mapped.activityType = this.mapActivityType(raw.fuelTypeOrActivity);
+      } else {
+        // Try to use any column that might contain activity info
+        const activityColumn = Object.values(data).find((value: any) => 
+          typeof value === 'string' && 
+          value.length > 0 && 
+          !this.isNumeric(value) &&
+          !this.isDate(value)
+        );
+        if (activityColumn) {
+          mapped.activityType = this.mapActivityType(activityColumn);
+          warnings.push(`Used column "${activityColumn}" as activity type`);
+        } else {
+          errors.push('No activity type found');
+        }
       }
 
-      // Parse quantity (activity data amount)
+      // Parse quantity (activity data amount) - flexible
       if (raw.activityDataAmount !== undefined) {
         const quantity = this.parseNumber(raw.activityDataAmount);
         if (quantity !== null) {
@@ -264,19 +300,49 @@ export class EmissionsInventoryParser {
             errors.push('Activity data amount must be non-negative');
           }
         } else if (raw.notationKey) {
-          // If notation key exists, quantity might be NA/NO/NE etc.
           warnings.push(`No quantity data (notation: ${raw.notationKey})`);
         } else {
-          errors.push(`Invalid activity data amount: ${raw.activityDataAmount}`);
+          // Try to find any numeric column
+          const numericColumn = Object.values(data).find((value: any) => 
+            typeof value === 'number' || 
+            (typeof value === 'string' && !isNaN(parseFloat(value)) && parseFloat(value) > 0)
+          );
+          if (numericColumn) {
+            mapped.quantity = parseFloat(String(numericColumn));
+            warnings.push(`Used numeric column "${numericColumn}" as quantity`);
+          } else {
+            errors.push(`Invalid activity data amount: ${raw.activityDataAmount}`);
+          }
+        }
+      } else {
+        // Try to find any numeric column for quantity
+        const numericColumn = Object.values(data).find((value: any) => 
+          typeof value === 'number' || 
+          (typeof value === 'string' && !isNaN(parseFloat(value)) && parseFloat(value) > 0)
+        );
+        if (numericColumn) {
+          mapped.quantity = parseFloat(String(numericColumn));
+          warnings.push(`Used numeric column "${numericColumn}" as quantity`);
+        } else {
+          errors.push('No quantity data found');
         }
       }
 
-      // Parse unit
+      // Parse unit (optional, try to infer)
       if (raw.activityDataUnit) {
         mapped.unit = this.cleanString(raw.activityDataUnit);
+      } else {
+        // Try to infer unit from activity type
+        mapped.unit = this.inferUnitFromActivity(mapped.activityType);
+        if (mapped.unit) {
+          warnings.push(`Inferred unit "${mapped.unit}" from activity type`);
+        } else {
+          mapped.unit = 'UNKNOWN';
+          warnings.push('No unit found, using UNKNOWN');
+        }
       }
 
-      // Parse notation key
+      // Parse notation key (optional)
       if (raw.notationKey) {
         mapped.notationKey = this.cleanString(raw.notationKey);
       }
@@ -289,20 +355,25 @@ export class EmissionsInventoryParser {
       if (mapped.notationKey) noteParts.push(`Notation: ${mapped.notationKey}`);
       if (raw.description) noteParts.push(`Description: ${raw.description}`);
       
+      // Add any unmapped columns to notes
+      const mappedColumns = Object.values(columnMapping);
+      for (const [key, value] of Object.entries(data)) {
+        if (!mappedColumns.includes(key) && value && String(value).trim()) {
+          noteParts.push(`${key}: ${value}`);
+        }
+      }
+      
       mapped.notes = noteParts.join(' | ');
 
       // Build source field
       mapped.source = raw.source || 'EMISSIONS_INVENTORY_UPLOAD';
 
-      // Validation rules
-      if (!mapped.quantity && !mapped.notationKey) {
-        errors.push('Either quantity or notation key must be provided');
-      }
-      if (mapped.quantity && !mapped.unit) {
-        errors.push('Unit is required when quantity is provided');
-      }
+      // More lenient validation - only require activity type and quantity
       if (!mapped.activityType) {
         errors.push('Activity type is required');
+      }
+      if (!mapped.quantity && !mapped.notationKey) {
+        errors.push('Either quantity or notation key must be provided');
       }
 
     } catch (error) {
@@ -459,6 +530,85 @@ export class EmissionsInventoryParser {
       return '';
     }
     return String(value).trim();
+  }
+
+  /**
+   * Check if value is numeric
+   */
+  private static isNumeric(value: any): boolean {
+    if (typeof value === 'number') return true;
+    if (typeof value === 'string') {
+      const num = parseFloat(value);
+      return !isNaN(num) && isFinite(num);
+    }
+    return false;
+  }
+
+  /**
+   * Check if value is a date
+   */
+  private static isDate(value: any): boolean {
+    if (value instanceof Date) return true;
+    if (typeof value === 'string') {
+      const date = new Date(value);
+      return !isNaN(date.getTime());
+    }
+    return false;
+  }
+
+  /**
+   * Infer scope from activity type
+   */
+  private static inferScopeFromActivity(activityType: string): string {
+    if (!activityType) return 'SCOPE_3';
+    
+    const activity = activityType.toUpperCase();
+    
+    // Scope 1: Direct emissions from owned/controlled sources
+    if (activity.includes('NATURAL_GAS') || activity.includes('DIESEL') || 
+        activity.includes('PETROL') || activity.includes('COAL') ||
+        activity.includes('FUEL') || activity.includes('COMBUSTION')) {
+      return 'SCOPE_1';
+    }
+    
+    // Scope 2: Indirect emissions from purchased energy
+    if (activity.includes('ELECTRICITY') || activity.includes('POWER') ||
+        activity.includes('DISTRICT_HEATING') || activity.includes('DISTRICT_COOLING')) {
+      return 'SCOPE_2';
+    }
+    
+    // Default to Scope 3 for other activities
+    return 'SCOPE_3';
+  }
+
+  /**
+   * Infer unit from activity type
+   */
+  private static inferUnitFromActivity(activityType: string): string {
+    if (!activityType) return 'UNKNOWN';
+    
+    const activity = activityType.toUpperCase();
+    
+    // Energy units
+    if (activity.includes('ELECTRICITY') || activity.includes('POWER')) {
+      return 'kWh';
+    }
+    if (activity.includes('NATURAL_GAS') || activity.includes('GAS')) {
+      return 'm3';
+    }
+    if (activity.includes('DIESEL') || activity.includes('PETROL') || 
+        activity.includes('FUEL') || activity.includes('OIL')) {
+      return 'L';
+    }
+    if (activity.includes('COAL')) {
+      return 'kg';
+    }
+    if (activity.includes('DISTRICT_HEATING') || activity.includes('DISTRICT_COOLING')) {
+      return 'MJ';
+    }
+    
+    // Default units
+    return 'UNKNOWN';
   }
 
   /**

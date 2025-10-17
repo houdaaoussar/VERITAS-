@@ -31,32 +31,23 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   useEffect(() => {
     const initAuth = async () => {
-      // AUTO-LOGIN: Skip authentication and set a mock user
-      const mockUser: User = {
+      // SKIP LOGIN - Create mock user directly
+      const mockUser = {
         id: 'mock-user-id',
-        email: 'demo@example.com',
-        role: 'ADMIN',
+        email: 'demo@test.com',
+        role: 'ADMIN' as const,
         customerId: 'mock-customer-id',
+        customerName: 'Demo Company',
         createdAt: new Date().toISOString()
       }
-      setUser(mockUser)
-      setIsLoading(false)
       
-      /* ORIGINAL CODE - Commented out to skip login
-      const token = localStorage.getItem('accessToken')
-      if (token) {
-        try {
-          const userData = await authApi.getCurrentUser()
-          setUser(userData)
-        } catch (error) {
-          // Clear invalid tokens and redirect to login
-          localStorage.removeItem('accessToken')
-          localStorage.removeItem('refreshToken')
-          console.log('Authentication failed, clearing tokens')
-        }
-      }
+      // Set mock tokens
+      localStorage.setItem('accessToken', 'mock-token-for-testing')
+      localStorage.setItem('refreshToken', 'mock-refresh-token')
+      
+      setUser(mockUser)
+      toast.success('✅ Logged in as Demo User (No Auth Required)')
       setIsLoading(false)
-      */
     }
 
     initAuth()

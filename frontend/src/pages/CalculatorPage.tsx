@@ -1,4 +1,5 @@
-import React, { useState, useMemo, useCallback } from 'react';
+import React, { useState, useMemo, useCallback, useEffect } from 'react';
+import toast from 'react-hot-toast';
 
 // --- Type Definitions ---
 type ActivityRow = {
@@ -44,11 +45,134 @@ const initialScope3Data: Scope3ActivityRow[] = [
     { id: 11, source: 'Cat. 11: Use of Sold Products', methodology: 'tier2', activity: 5000, unit: 'kWh', factor: 0.000177, factorSource: 'LCA Data', co2e: 0.89 },
 ];
 
+// Helper function to convert uploaded data to calculator format
+const convertUploadedDataToCalculator = (uploadedData: any[]): ActivityRow[] => {
+  // Expanded emission factors with more variations
+  const emissionFactors: Record<string, { factor: number; factorSource: string }> = {
+    'natural gas': { factor: 0.0002027, factorSource: 'DESNZ, 2025' },
+    'diesel': { factor: 0.000239, factorSource: 'DESNZ, 2025' },
+    'lpg': { factor: 0.00023032, factorSource: 'DESNZ, 2025' },
+    'propane': { factor: 0.00023032, factorSource: 'DESNZ, 2025' },
+    'refrigerants': { factor: 1.43, factorSource: 'IPCC, 2014' },
+    'process emissions': { factor: 1.5, factorSource: 'Process-Specific' },
+    'electricity': { factor: 0.000177, factorSource: 'DESNZ, 2025' },
+    'petrol': { factor: 0.000239, factorSource: 'DESNZ, 2025' },
+    'gasoline': { factor: 0.000239, factorSource: 'DESNZ, 2025' },
+    'coal': { factor: 0.000341, factorSource: 'DESNZ, 2025' },
+    'fuel oil': { factor: 0.000277, factorSource: 'DESNZ, 2025' },
+  };
+
+  return uploadedData.filter(row => {
+    // Filter out empty rows
+    const hasData = Object.values(row).some(val => val && val !== '-' && val !== 'undefined');
+    return hasData && row.rowIndex;
+  }).map((row, index) => {
+    // Try multiple field names for emission type
+    const emissionType = (
+      row['Fuel type or activity'] ||
+      row['Emission Type'] || 
+      row['emission_category'] || 
+      row['Type'] || 
+      row['Category'] || 
+      row['Fuel Type'] ||
+      row['Source'] ||
+      ''
+    ).toString().trim();
+    
+    // Try multiple field names for quantity
+    const quantityValue = 
+      row['Activity data - Amount'] ||
+      row['Consumption'] || 
+      row['quantity'] || 
+      row['Quantity'] ||
+      row['Amount'] ||
+      row['Usage'] ||
+      row['Volume'] ||
+      0;
+    const quantity = parseFloat(quantityValue.toString().replace(/[^0-9.-]/g, '')) || 0;
+    
+    // Try multiple field names for unit
+    const unit = (
+      row['Activity data - Unit'] ||
+      row['Unit'] || 
+      row['unit'] || 
+      row['Units'] ||
+      row['UOM'] ||
+      'kWh'
+    ).toString().trim();
+    
+    // Try multiple field names for location/site
+    const location = (
+      row['CRF - Sector'] ||
+      row['Location'] || 
+      row['site_name'] || 
+      row['Site'] ||
+      row['Facility'] ||
+      row['Building'] ||
+      'Unknown'
+    ).toString().trim();
+    
+    // Find matching emission factor (case-insensitive)
+    const emissionTypeLower = emissionType.toLowerCase();
+    let factorInfo = emissionFactors[emissionTypeLower];
+    
+    // Try partial matching if exact match not found
+    if (!factorInfo) {
+      for (const [key, value] of Object.entries(emissionFactors)) {
+        if (emissionTypeLower.includes(key) || key.includes(emissionTypeLower)) {
+          factorInfo = value;
+          break;
+        }
+      }
+    }
+    
+    // Default factor if still not found
+    if (!factorInfo) {
+      factorInfo = { factor: 0.0002, factorSource: 'Default' };
+    }
+    
+    const co2e = quantity * factorInfo.factor;
+
+    return {
+      id: index + 1,
+      source: `${emissionType} (${location})`,
+      activity: quantity,
+      unit: unit,
+      factor: factorInfo.factor,
+      factorSource: factorInfo.factorSource,
+      co2e: co2e
+    };
+  });
+};
+
 // --- Main Component ---
 export const CalculatorPage: React.FC = () => {
   const [scope1Data, setScope1Data] = useState<ActivityRow[]>(initialScope1Data);
   const [scope2Data, setScope2Data] = useState<ActivityRow[]>(initialScope2Data);
   const [scope3Data, setScope3Data] = useState<Scope3ActivityRow[]>(initialScope3Data);
+  const [dataSource, setDataSource] = useState<'default' | 'uploaded'>('default');
+
+  // Load uploaded data on component mount
+  useEffect(() => {
+    const uploadedDataStr = localStorage.getItem('uploadedEmissionData');
+    console.log('🔍 Calculator: Checking for uploaded data');
+    console.log('🔍 Raw data from localStorage:', uploadedDataStr);
+    if (uploadedDataStr) {
+      try {
+        const uploadedData = JSON.parse(uploadedDataStr);
+        console.log('🔍 Parsed uploaded data:', uploadedData);
+        console.log('🔍 First row:', uploadedData[0]);
+        const convertedData = convertUploadedDataToCalculator(uploadedData);
+        console.log('🔍 Converted data:', convertedData);
+        console.log('🔍 First converted row:', convertedData[0]);
+        setScope1Data(convertedData);
+        setDataSource('uploaded');
+        toast.success(`Loaded ${convertedData.length} emission activities from your upload!`);
+      } catch (error) {
+        console.error('Failed to load uploaded data:', error);
+      }
+    }
+  }, []);
 
   const handleActivityChange = useCallback((scope: 'scope1' | 'scope2' | 'scope3', id: number, value: string) => {
     const numericValue = parseFloat(value) || 0;
@@ -95,8 +219,20 @@ export const CalculatorPage: React.FC = () => {
   return (
     <div className="space-y-6 py-6">
       <header className="bg-white shadow-sm p-4 rounded-lg">
-        <h1 className="text-2xl font-bold text-gray-900">Carbon Emissions Calculator</h1>
-        <p className="text-sm text-gray-600 mt-1">Edit activity data and methodology tiers to calculate your carbon footprint.</p>
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-2xl font-bold text-gray-900">Carbon Emissions Calculator</h1>
+            <p className="text-sm text-gray-600 mt-1">Edit activity data and methodology tiers to calculate your carbon footprint.</p>
+          </div>
+          {dataSource === 'uploaded' && (
+            <div className="bg-green-100 border border-green-400 text-green-700 px-4 py-2 rounded-lg flex items-center gap-2">
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              <span className="text-sm font-medium">Using Uploaded Data</span>
+            </div>
+          )}
+        </div>
       </header>
 
       <div className="card">

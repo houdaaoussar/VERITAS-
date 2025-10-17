@@ -295,12 +295,14 @@ export const EmissionsInventoryUploadPage: React.FC = () => {
 
           {/* Instructions */}
           <div className="mt-6 bg-blue-50 border border-blue-200 rounded-lg p-4">
-            <h3 className="text-sm font-semibold text-blue-900 mb-2">📋 CSV File Requirements:</h3>
+            <h3 className="text-sm font-semibold text-blue-900 mb-2">📋 Flexible File Requirements:</h3>
             <ul className="text-sm text-blue-800 space-y-1">
               <li>• Must include headers in the first row</li>
-              <li>• Expected columns: Inventory Year, GPC Ref No, CRF Sector, Sub-Sector, Scope, Fuel Type/Activity, Activity Data Amount, Unit</li>
-              <li>• The system will auto-detect columns and map them accordingly</li>
+              <li>• <strong>Any Excel structure is supported</strong> - the system will auto-detect columns</li>
+              <li>• Common columns: Year, Activity/Fuel Type, Amount/Quantity, Unit, Scope</li>
+              <li>• The system will automatically infer missing information (scope, units, year)</li>
               <li>• Notation keys (NO, NA, NE, etc.) are supported for missing data</li>
+              <li>• <strong>Minimum required:</strong> At least one text column (activity type) and one numeric column (quantity)</li>
             </ul>
           </div>
         </div>

@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Ingest Endpoint - No Auth Required</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 40px 20px;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            overflow: hidden;
+        }
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+        .header h1 { font-size: 28px; margin-bottom: 10px; }
+        .header p { opacity: 0.9; }
+        .content { padding: 40px; }
+        .upload-area {
+            border: 3px dashed #667eea;
+            border-radius: 8px;
+            padding: 40px;
+            text-align: center;
+            background: #f8f9ff;
+            transition: all 0.3s;
+        }
+        .upload-area:hover { border-color: #764ba2; background: #f0f2ff; }
+        .upload-area.dragover { border-color: #764ba2; background: #e8ebff; transform: scale(1.02); }
+        input[type="file"] {
+            display: none;
+        }
+        .file-label {
+            display: inline-block;
+            padding: 12px 30px;
+            background: #667eea;
+            color: white;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: all 0.3s;
+        }
+        .file-label:hover { background: #764ba2; transform: translateY(-2px); box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4); }
+        .file-name {
+            margin-top: 15px;
+            color: #666;
+            font-size: 14px;
+        }
+        button {
+            width: 100%;
+            padding: 15px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 6px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            margin-top: 20px;
+            transition: all 0.3s;
+        }
+        button:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4); }
+        button:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+        #result {
+            margin-top: 30px;
+            padding: 20px;
+            border-radius: 8px;
+            display: none;
+        }
+        #result.success { background: #d4edda; border: 2px solid #28a745; }
+        #result.error { background: #f8d7da; border: 2px solid #dc3545; }
+        .result-header { font-size: 20px; font-weight: 600; margin-bottom: 15px; }
+        .result-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 15px; margin: 20px 0; }
+        .stat-box { background: white; padding: 15px; border-radius: 6px; text-align: center; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
+        .stat-value { font-size: 32px; font-weight: bold; color: #667eea; }
+        .stat-label { font-size: 12px; color: #666; margin-top: 5px; text-transform: uppercase; }
+        .mappings { margin-top: 20px; }
+        .mapping-item { background: white; padding: 10px 15px; margin: 8px 0; border-radius: 6px; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+        .confidence { background: #28a745; color: white; padding: 4px 12px; border-radius: 12px; font-size: 12px; font-weight: 600; }
+        pre { background: #f8f9fa; padding: 15px; border-radius: 6px; overflow-x: auto; font-size: 12px; margin-top: 15px; max-height: 400px; overflow-y: auto; }
+        .spinner { border: 3px solid #f3f3f3; border-top: 3px solid #667eea; border-radius: 50%; width: 40px; height: 40px; animation: spin 1s linear infinite; margin: 20px auto; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🚀 Intelligent CSV/Excel Ingest Tester</h1>
+            <p>Test the ingest endpoint without authentication</p>
+        </div>
+        
+        <div class="content">
+            <div class="upload-area" id="uploadArea">
+                <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="#667eea" stroke-width="2">
+                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                    <polyline points="17 8 12 3 7 8"></polyline>
+                    <line x1="12" y1="3" x2="12" y2="15"></line>
+                </svg>
+                <h3 style="margin: 20px 0 10px 0; color: #333;">Drop your file here or click to browse</h3>
+                <p style="color: #666; font-size: 14px;">Supports CSV, XLSX, XLS files (up to 100MB)</p>
+                <label for="fileInput" class="file-label" style="margin-top: 20px;">Choose File</label>
+                <input type="file" id="fileInput" accept=".csv,.xlsx,.xls">
+                <div class="file-name" id="fileName"></div>
+            </div>
+            
+            <button id="uploadBtn" onclick="uploadFile()" disabled>Upload & Process</button>
+            
+            <div id="loading" style="display: none; text-align: center; margin-top: 30px;">
+                <div class="spinner"></div>
+                <p style="color: #666; margin-top: 10px;">Processing your file...</p>
+            </div>
+            
+            <div id="result"></div>
+        </div>
+    </div>
+
+    <script>
+        const fileInput = document.getElementById('fileInput');
+        const uploadArea = document.getElementById('uploadArea');
+        const fileName = document.getElementById('fileName');
+        const uploadBtn = document.getElementById('uploadBtn');
+        const resultDiv = document.getElementById('result');
+        const loadingDiv = document.getElementById('loading');
+
+        // File input change
+        fileInput.addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (file) {
+                fileName.textContent = `Selected: ${file.name} (${(file.size / 1024).toFixed(2)} KB)`;
+                uploadBtn.disabled = false;
+            }
+        });
+
+        // Drag and drop
+        uploadArea.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            uploadArea.classList.add('dragover');
+        });
+
+        uploadArea.addEventListener('dragleave', () => {
+            uploadArea.classList.remove('dragover');
+        });
+
+        uploadArea.addEventListener('drop', (e) => {
+            e.preventDefault();
+            uploadArea.classList.remove('dragover');
+            const file = e.dataTransfer.files[0];
+            if (file) {
+                fileInput.files = e.dataTransfer.files;
+                fileName.textContent = `Selected: ${file.name} (${(file.size / 1024).toFixed(2)} KB)`;
+                uploadBtn.disabled = false;
+            }
+        });
+
+        async function uploadFile() {
+            const file = fileInput.files[0];
+            
+            if (!file) {
+                alert('Please select a file');
+                return;
+            }
+
+            const formData = new FormData();
+            formData.append('file', file);
+
+            uploadBtn.disabled = true;
+            resultDiv.style.display = 'none';
+            loadingDiv.style.display = 'block';
+
+            try {
+                const response = await fetch('http://localhost:3002/api/ingest/test', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const result = await response.json();
+                loadingDiv.style.display = 'none';
+                displayResults(result);
+                
+            } catch (error) {
+                loadingDiv.style.display = 'none';
+                resultDiv.className = 'error';
+                resultDiv.style.display = 'block';
+                resultDiv.innerHTML = `
+                    <div class="result-header">❌ Error</div>
+                    <p><strong>Message:</strong> ${error.message}</p>
+                    <div style="margin-top: 15px; padding: 15px; background: #fff3cd; border-left: 4px solid #ffc107; border-radius: 4px;">
+                        <p style="color: #856404; font-weight: 600;">⚠️ CORS Issue Detected</p>
+                        <p style="color: #856404; margin-top: 8px; font-size: 14px;">
+                            Opening HTML from file:// causes CORS errors. Use the PowerShell script instead:
+                        </p>
+                        <pre style="background: #333; color: #0f0; padding: 10px; border-radius: 4px; margin-top: 10px; font-size: 13px;">powershell -ExecutionPolicy Bypass -File test-ingest-no-auth.ps1</pre>
+                        <p style="color: #856404; margin-top: 10px; font-size: 14px;">
+                            Or use Postman/Thunder Client to test the API directly.
+                        </p>
+                    </div>
+                `;
+            } finally {
+                uploadBtn.disabled = false;
+            }
+        }
+
+        function displayResults(result) {
+            resultDiv.className = result.status === 'success' ? 'success' : 'error';
+            resultDiv.style.display = 'block';
+
+            let html = `
+                <div class="result-header">${result.status === 'success' ? '✅' : '❌'} ${result.message}</div>
+                
+                <div class="result-stats">
+                    <div class="stat-box">
+                        <div class="stat-value">${result.rows_imported}</div>
+                        <div class="stat-label">Rows Imported</div>
+                    </div>
+                    <div class="stat-box">
+                        <div class="stat-value" style="color: ${result.rows_failed > 0 ? '#dc3545' : '#28a745'}">${result.rows_failed}</div>
+                        <div class="stat-label">Rows Failed</div>
+                    </div>
+                </div>
+            `;
+
+            if (result.header_mappings && result.header_mappings.length > 0) {
+                html += '<div class="mappings"><h4 style="margin-bottom: 10px;">📊 Column Mappings:</h4>';
+                result.header_mappings.forEach(mapping => {
+                    const confidence = Math.round(mapping.confidence * 100);
+                    html += `
+                        <div class="mapping-item">
+                            <span><strong>${mapping.sourceColumn}</strong> → ${mapping.targetField}</span>
+                            <span class="confidence">${confidence}%</span>
+                        </div>
+                    `;
+                });
+                html += '</div>';
+            }
+
+            if (result.data && result.data.length > 0) {
+                html += `
+                    <h4 style="margin-top: 20px;">📋 Preview (first 3 rows):</h4>
+                    <pre>${JSON.stringify(result.data.slice(0, 3), null, 2)}</pre>
+                `;
+            }
+
+            if (result.issues && result.issues.length > 0) {
+                html += '<h4 style="margin-top: 20px; color: #dc3545;">⚠️ Issues Found:</h4>';
+                result.issues.forEach(issue => {
+                    html += `<p style="color: #dc3545; margin: 5px 0;">Row ${issue.row_index}: ${issue.errors.join(', ')}</p>`;
+                });
+            }
+
+            resultDiv.innerHTML = html;
+        }
+    </script>
+</body>
+</html>

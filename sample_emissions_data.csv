@@ -1,0 +1,6 @@
+Emission Type,Location,Consumption,Unit,Start Date,End Date,Notes
+Natural Gas,Main Office,1500,kWh,2024-01-01,2024-01-31,January heating
+Diesel,Warehouse,250,litres,2024-01-01,2024-01-31,Fleet fuel consumption
+LPG,Factory,800,kg,2024-01-01,2024-01-31,Forklift operations
+Refrigerants,Main Office,5,kg,2024-01-15,2024-01-15,AC maintenance - R410A
+Process Emissions,Factory,1200,kg,2024-01-01,2024-01-31,Manufacturing process

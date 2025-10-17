@@ -126,6 +126,11 @@ export const customersApi = {
 // Sites API
 export const sitesApi = {
   getAll: async (customerId: string): Promise<Site[]> => {
+    // Use test endpoint for mock customer (no auth required)
+    if (customerId === 'mock-customer-id') {
+      const response = await api.get('/sites/test')
+      return response.data
+    }
     const response = await api.get('/sites', { params: { customerId } })
     return response.data
   },
@@ -381,7 +386,49 @@ export const uploadsApi = {
     filename: string
     size: number
     status: string
+    ingestData?: any
   }> => {
+    // Check if this is a mock customer - use test endpoint
+    const customerId = formData.get('customerId');
+    if (customerId === 'mock-customer-id') {
+      // Use the ingest test endpoint and get real data
+      const response = await api.post('/ingest/test', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' }
+      })
+      // Store the actual ingest response for later use
+      const ingestData = response.data;
+      console.log('🚀 Upload response from backend:', ingestData);
+      console.log('🚀 Status:', ingestData.status);
+      console.log('🚀 Message:', ingestData.message);
+      console.log('🚀 Data array:', ingestData.data);
+      console.log('🚀 Data array length:', ingestData.data?.length);
+      console.log('🚀 Header mappings:', ingestData.header_mappings);
+      console.log('🚀 Missing targets:', ingestData.missing_targets);
+      console.log('🚀 Issues:', ingestData.issues);
+      
+      // If no data was imported, show why
+      if (ingestData.rows_imported === 0) {
+        console.error('❌ No rows were imported!');
+        if (ingestData.missing_targets && ingestData.missing_targets.length > 0) {
+          console.error('❌ Missing required columns:', ingestData.missing_targets);
+        }
+        if (ingestData.issues && ingestData.issues.length > 0) {
+          console.error('❌ Validation issues:', ingestData.issues);
+        }
+      }
+      
+      // Store in sessionStorage so parseFile can access it
+      sessionStorage.setItem('latestIngestData', JSON.stringify(ingestData));
+      console.log('✅ Stored in sessionStorage');
+      // Transform response to match expected format
+      return {
+        uploadId: 'mock-upload-' + Date.now(),
+        filename: 'test-file.csv',
+        size: 0,
+        status: 'completed',
+        ingestData: ingestData
+      }
+    }
     const response = await api.post('/uploads', formData, {
       headers: { 'Content-Type': 'multipart/form-data' }
     })
@@ -392,14 +439,94 @@ export const uploadsApi = {
     siteMapping?: Record<string, string>
     dateFormat?: string
     hasHeaders?: boolean
-  }): Promise<{
-    totalRows: number
-    validRows: number
-    errorRows: number
-    columns: string[]
-    sample: any[]
-    errors: any[]
-  }> => {
+  }): Promise<any> => {
+    // Return real parse results for mock uploads using stored ingest data
+    if (uploadId.startsWith('mock-upload-')) {
+      // Get the stored ingest data from sessionStorage
+      const storedData = sessionStorage.getItem('latestIngestData');
+      console.log('📊 Parsing file, stored data:', storedData ? 'Found' : 'Not found');
+      
+      if (storedData) {
+        const ingestData = JSON.parse(storedData);
+        console.log('📊 Ingest data:', ingestData);
+        console.log('📊 Ingest data.data:', ingestData.data);
+        console.log('📊 Ingest rows_imported:', ingestData.rows_imported);
+        console.log('📊 Full ingest object keys:', Object.keys(ingestData));
+        
+        // Get unique column names from header mappings (filter out duplicates)
+        const columnSet = new Set<string>();
+        ingestData.header_mappings?.forEach((m: any) => {
+          if (m.sourceColumn && m.confidence > 0.5) {
+            columnSet.add(m.sourceColumn);
+          }
+        });
+        const columns = Array.from(columnSet);
+        
+        console.log('📊 Columns:', columns);
+        console.log('📊 Header Mappings:', ingestData.header_mappings);
+        console.log('📊 Data rows:', ingestData.data?.length);
+        if (ingestData.data && ingestData.data.length > 0) {
+          console.log('📊 First data row:', ingestData.data[0]);
+        }
+        console.log('📊 Issues/Errors:', ingestData.issues);
+        if (ingestData.issues && ingestData.issues.length > 0) {
+          console.log('📊 First 3 errors:', ingestData.issues.slice(0, 3));
+        }
+        
+        // Convert ingest data format to upload page format
+        const sample = ingestData.data?.map((row: any, index: number) => {
+          const formattedRow: any = { 
+            rowIndex: index + 1, 
+            errors: [] 
+          };
+          
+          // Map each field from the ingest data to the original column name
+          ingestData.header_mappings?.forEach((mapping: any) => {
+            const targetField = mapping.targetField;
+            const sourceColumn = mapping.sourceColumn;
+            
+            // Skip duplicate mappings (keep highest confidence)
+            if (mapping.confidence < 0.6 && targetField === 'scope') return;
+            
+            let value = row[targetField];
+            
+            // Format dates nicely
+            if (targetField.includes('date') && value) {
+              try {
+                const date = new Date(value);
+                value = date.toISOString().split('T')[0]; // YYYY-MM-DD format
+              } catch (e) {
+                // Keep original value if date parsing fails
+              }
+            }
+            
+            // Format the value for display
+            if (value !== undefined && value !== null) {
+              formattedRow[sourceColumn] = value;
+            }
+          });
+          
+          return formattedRow;
+        }) || [];
+        
+        console.log('📊 Sample rows:', sample);
+        
+        const result = {
+          uploadId,
+          totalRows: (ingestData.rows_imported || 0) + (ingestData.rows_failed || 0),
+          validRows: ingestData.rows_imported || 0,
+          errorRows: ingestData.rows_failed || 0,
+          columns: columns,
+          sample: sample,
+          errors: ingestData.issues || []
+        };
+        
+        console.log('📊 Parse result:', result);
+        return result;
+      } else {
+        console.error('❌ No stored ingest data found!');
+      }
+    }
     const response = await api.post(`/uploads/${uploadId}/parse`, options)
     return response.data
   },
@@ -416,6 +543,15 @@ export const uploadsApi = {
     importedRows: number
     message: string
   }> => {
+    // Return mock success for mock uploads
+    if (data.uploadId.startsWith('mock-upload-')) {
+      return {
+        totalRows: 5,
+        validRows: 5,
+        importedRows: 5,
+        message: 'Successfully imported 5 activities (TEST MODE)'
+      };
+    }
     const response = await api.post(`/uploads/${data.uploadId}/import`, data);
     return response.data
   },
@@ -425,6 +561,10 @@ export const uploadsApi = {
   },
 
   getUploads: async (customerId: string): Promise<Upload[]> => {
+    // Return empty array for mock customer (no auth required)
+    if (customerId === 'mock-customer-id') {
+      return [];
+    }
     const response = await api.get('/uploads', { params: { customerId } })
     return response.data
   },
@@ -433,6 +573,11 @@ export const uploadsApi = {
 // Reporting Periods API
 export const periodsApi = {
   getAll: async (customerId: string): Promise<ReportingPeriod[]> => {
+    // Use test endpoint for mock customer (no auth required)
+    if (customerId === 'mock-customer-id') {
+      const response = await api.get('/periods/test');
+      return response.data;
+    }
     const response = await api.get('/periods', { params: { customerId } });
     return response.data;
   },

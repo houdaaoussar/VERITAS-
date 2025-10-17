@@ -24,6 +24,49 @@ const updateSiteSchema = Joi.object({
   postcode: Joi.string().max(20).optional()
 });
 
+// Test endpoint - Get sites without auth (for development)
+router.get('/test', async (req, res, next) => {
+  try {
+    // Return mock sites for testing
+    const mockSites = [
+      {
+        id: 'mock-site-1',
+        name: 'Main Office',
+        customerId: 'mock-customer-id',
+        country: 'United States',
+        region: 'NY',
+        postalCode: '10001',
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      },
+      {
+        id: 'mock-site-2',
+        name: 'Warehouse',
+        customerId: 'mock-customer-id',
+        country: 'United States',
+        region: 'NJ',
+        postalCode: '07102',
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      },
+      {
+        id: 'mock-site-3',
+        name: 'Factory',
+        customerId: 'mock-customer-id',
+        country: 'United States',
+        region: 'NY',
+        postalCode: '14201',
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      }
+    ];
+    
+    res.json(mockSites);
+  } catch (error) {
+    next(error);
+  }
+});
+
 // Get sites for a customer
 router.get('/', authenticateToken, async (req: AuthenticatedRequest, res, next) => {
   try {

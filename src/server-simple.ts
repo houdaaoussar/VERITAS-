@@ -15,6 +15,7 @@ import { projectRoutes } from './routes/projects';
 import { reportingRoutes } from './routes/reporting';
 import { customerRoutes } from './routes/customers';
 import { emissionsInventoryRoutes } from './routes/emissionsInventory';
+import { ingestRoutes } from './routes/ingest';
 
 console.log('✅ All route modules imported successfully');
 
@@ -27,9 +28,24 @@ const app = express();
 app.use(helmet());
 app.use(compression());
 
-// CORS configuration
+// CORS configuration - Allow all localhost origins for development
 app.use(cors({
-  origin: process.env.CORS_ORIGIN || 'http://localhost:3001',
+  origin: function (origin, callback) {
+    // Allow requests with no origin (like mobile apps or curl requests)
+    if (!origin) return callback(null, true);
+    
+    // Allow all localhost and 127.0.0.1 origins
+    if (origin.includes('localhost') || origin.includes('127.0.0.1')) {
+      return callback(null, true);
+    }
+    
+    // Allow configured origin
+    if (origin === process.env.CORS_ORIGIN) {
+      return callback(null, true);
+    }
+    
+    callback(null, true); // Allow all in development
+  },
   credentials: true
 }));
 
@@ -37,8 +53,8 @@ app.use(cors({
 app.use(morgan('combined'));
 
 // Body parsing
-app.use(express.json({ limit: '10mb' }));
-app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+app.use(express.json({ limit: '100mb' }));
+app.use(express.urlencoded({ extended: true, limit: '100mb' }));
 
 // Request logging middleware
 app.use((req, res, next) => {
@@ -89,6 +105,7 @@ app.use('/api/projects', apiLimiter, projectRoutes);
 app.use('/api/reporting', apiLimiter, reportingRoutes);
 app.use('/api/customers', apiLimiter, customerRoutes);
 app.use('/api/emissions-inventory', apiLimiter, emissionsInventoryRoutes);
+app.use('/api/ingest', apiLimiter, ingestRoutes);
 console.log('✅ All routes registered successfully');
 
 // API health endpoint
@@ -126,6 +143,7 @@ app.listen(PORT, () => {
   console.log(`📅 Periods: http://localhost:${PORT}/api/periods`);
   console.log(`🧮 Calculations: http://localhost:${PORT}/api/calc`);
   console.log(`📊 Reporting: http://localhost:${PORT}/api/reporting`);
+  console.log(`📥 Ingest: http://localhost:${PORT}/api/ingest`);
   console.log('');
   console.log('Ready to accept requests! 🎉');
 });
