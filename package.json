@@ -9,7 +9,7 @@
     "dev:frontend": "cd frontend && npm run dev",
     "build": "tsc",
     "start": "node dist/server-simple.js",
-    "postinstall": "prisma generate",
+    "postinstall": "echo 'Skipping Prisma - using in-memory storage'",
     "test": "jest",
     "test:watch": "jest --watch",
     "lint": "eslint src/**/*.ts",
