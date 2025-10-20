@@ -16,7 +16,8 @@
     "lint:fix": "eslint src/**/*.ts --fix",
     "db:migrate": "npx prisma migrate dev",
     "db:generate": "npx prisma generate",
-    "db:seed": "ts-node scripts/seed.ts"
+    "db:seed": "ts-node scripts/seed.ts",
+    "generate-template": "ts-node scripts/generateEmissionsTemplate.ts"
   },
   "keywords": [
     "sustainability",

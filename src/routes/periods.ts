@@ -1,5 +1,5 @@
 import express from 'express';
-import { PrismaClient } from '@prisma/client';
+import { db as prisma } from '../storage/storageAdapter';
 import { authenticateToken, AuthenticatedRequest } from '../middleware/auth';
 import { createError } from '../middleware/errorHandler';
 import { requireRole } from '../middleware/auth';
@@ -22,32 +22,33 @@ const periodSchema = Joi.object({
 });
 
 const router = express.Router();
-const prisma = new PrismaClient();
 
 // Test endpoint - Get periods without auth (for development)
 router.get('/test', async (req, res, next) => {
   try {
-    // Return mock periods for testing
+    // Return default periods from in-memory storage
     const mockPeriods = [
       {
-        id: 'mock-period-1',
-        customerId: 'mock-customer-id',
+        id: 'period_default',
+        customerId: 'customer_default',
+        name: '2024 Q1',
         year: 2024,
         quarter: 1,
-        fromDate: '2024-01-01T00:00:00.000Z',
-        toDate: '2024-03-31T23:59:59.999Z',
-        status: 'OPEN',
+        startDate: '2024-01-01T00:00:00.000Z',
+        endDate: '2024-03-31T23:59:59.999Z',
+        status: 'ACTIVE',
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString()
       },
       {
-        id: 'mock-period-2',
-        customerId: 'mock-customer-id',
+        id: 'period_q2_2024',
+        customerId: 'customer_default',
+        name: '2024 Q2',
         year: 2024,
         quarter: 2,
-        fromDate: '2024-04-01T00:00:00.000Z',
-        toDate: '2024-06-30T23:59:59.999Z',
-        status: 'OPEN',
+        startDate: '2024-04-01T00:00:00.000Z',
+        endDate: '2024-06-30T23:59:59.999Z',
+        status: 'ACTIVE',
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString()
       }
@@ -71,10 +72,10 @@ router.get('/', authenticateToken, async (req: AuthenticatedRequest, res, next) 
       throw createError('Access denied', 403, 'FORBIDDEN');
     }
 
-    const periods = await prisma.reportingPeriod.findMany({
-      where: { customerId: customerId as string },
-      orderBy: { year: 'desc' },
-    });
+    const periods = await prisma.reportingPeriod.findMany({ customerId: customerId as string });
+
+    // Sort by year descending
+    periods.sort((a, b) => b.year - a.year);
 
     res.json(periods);
   } catch (error) {
@@ -94,9 +95,7 @@ router.post('/', authenticateToken, requireRole(['ADMIN', 'EDITOR']), async (req
       throw createError('Access denied', 403, 'FORBIDDEN');
     }
 
-    const period = await prisma.reportingPeriod.create({
-      data: value,
-    });
+    const period = await prisma.reportingPeriod.create(value);
 
     res.status(201).json(period);
   } catch (error) {
@@ -113,9 +112,7 @@ router.put('/:id', authenticateToken, requireRole(['ADMIN', 'EDITOR']), async (r
       throw createError(error.details[0].message, 400, 'VALIDATION_ERROR');
     }
 
-    const existingPeriod = await prisma.reportingPeriod.findUnique({
-      where: { id },
-    });
+    const existingPeriod = await prisma.reportingPeriod.findUnique({ id });
 
     if (!existingPeriod) {
       throw createError('Reporting period not found', 404, 'PERIOD_NOT_FOUND');
@@ -125,10 +122,7 @@ router.put('/:id', authenticateToken, requireRole(['ADMIN', 'EDITOR']), async (r
       throw createError('Access denied', 403, 'FORBIDDEN');
     }
 
-    const period = await prisma.reportingPeriod.update({
-      where: { id },
-      data: value,
-    });
+    const period = await prisma.reportingPeriod.update({ id }, value);
 
     res.json(period);
   } catch (error) {
@@ -141,9 +135,7 @@ router.delete('/:id', authenticateToken, requireRole(['ADMIN', 'EDITOR']), async
   try {
     const { id } = req.params;
 
-    const existingPeriod = await prisma.reportingPeriod.findUnique({
-      where: { id },
-    });
+    const existingPeriod = await prisma.reportingPeriod.findUnique({ id });
 
     if (!existingPeriod) {
       throw createError('Reporting period not found', 404, 'PERIOD_NOT_FOUND');
@@ -153,9 +145,7 @@ router.delete('/:id', authenticateToken, requireRole(['ADMIN', 'EDITOR']), async
       throw createError('Access denied', 403, 'FORBIDDEN');
     }
 
-    await prisma.reportingPeriod.delete({
-      where: { id },
-    });
+    await prisma.reportingPeriod.delete({ id });
 
     res.status(204).send();
   } catch (error) {

@@ -1,0 +1,24 @@
+Emission Category,Activity Data Amount,Activity Data Unit,Emission Factor,Emission Factor Unit,Emission Factor Source,Scope,Site Name,Activity Date Start,Activity Date End,Notes
+Stationary Combustion (Natural Gas),1500,kWh,0.0002027,kgCO2e/kWh,DESNZ 2025,Scope 1,Main Office,2024-01-01,2024-01-31,Office heating
+Mobile Combustion (Diesel),800,litres,0.000239,kgCO2e/kWh,DESNZ 2025,Scope 1,Fleet,2024-01-01,2024-01-31,Company vehicles
+Mobile Combustion (Petrol),500,litres,0.00024,kgCO2e/kWh,DESNZ 2025,Scope 1,Fleet,2024-01-01,2024-01-31,Company cars
+Stationary Combustion (LPG),200,kg,0.00023032,kgCO2e/kWh,DESNZ 2025,Scope 1,Backup Generator,2024-01-01,2024-01-31,Emergency generator
+Fugitive Emissions (Refrigerants),5,kg,1.43,kgCO2e/kg,IPCC 2014,Scope 1,Main Office,2024-01-01,2024-01-31,AC refrigerant top-up
+Process Emissions,2,tonnes,1.5,kgCO2e/tonne,Process-Specific,Scope 1,Manufacturing Plant,2024-01-01,2024-01-31,Production process
+Purchased Electricity,25000,kWh,0.00019338,kgCO2e/kWh,DESNZ 2025,Scope 2,Main Office,2024-01-01,2024-01-31,Office electricity
+Purchased Electricity,12000,kWh,0.00019338,kgCO2e/kWh,DESNZ 2025,Scope 2,Warehouse,2024-01-01,2024-01-31,Warehouse electricity
+District Heating,5000,kWh,0.00021,kgCO2e/kWh,DESNZ 2025,Scope 2,Main Office,2024-01-01,2024-01-31,Building heating
+District Cooling,3000,kWh,0.00018,kgCO2e/kWh,DESNZ 2025,Scope 2,Main Office,2024-01-01,2024-01-31,Building cooling
+Business Travel - Air (Short-haul),2000,passenger-km,0.00015,kgCO2e/passenger-km,DESNZ 2025,Scope 3,Business Travel,2024-01-01,2024-01-31,Domestic flights
+Business Travel - Air (Long-haul),5000,passenger-km,0.00012,kgCO2e/passenger-km,DESNZ 2025,Scope 3,Business Travel,2024-01-01,2024-01-31,International flights
+Business Travel - Rail,1500,passenger-km,0.00004,kgCO2e/passenger-km,DESNZ 2025,Scope 3,Business Travel,2024-01-01,2024-01-31,Train travel
+Business Travel - Road,800,passenger-km,0.00011,kgCO2e/passenger-km,DESNZ 2025,Scope 3,Business Travel,2024-01-01,2024-01-31,Taxi/rental cars
+Employee Commuting,3000,passenger-km,0.00011,kgCO2e/passenger-km,DESNZ 2025,Scope 3,Employee Commuting,2024-01-01,2024-01-31,Staff commute by car
+Waste - Landfill,1200,kg,0.00057,kgCO2e/kg,DESNZ 2025,Scope 3,Main Office,2024-01-01,2024-01-31,General waste
+Waste - Recycling,500,kg,0.00021,kgCO2e/kg,DESNZ 2025,Scope 3,Main Office,2024-01-01,2024-01-31,Recycled materials
+Waste - Incineration,300,kg,0.00021,kgCO2e/kg,DESNZ 2025,Scope 3,Main Office,2024-01-01,2024-01-31,Incinerated waste
+Water Supply,500,m³,0.344,kgCO2e/m³,DESNZ 2025,Scope 3,Main Office,2024-01-01,2024-01-31,Water consumption
+Wastewater Treatment,450,m³,0.708,kgCO2e/m³,DESNZ 2025,Scope 3,Main Office,2024-01-01,2024-01-31,Wastewater discharge
+Purchased Goods & Services,50000,GBP,0.00025,kgCO2e/GBP,DESNZ 2025,Scope 3,Procurement,2024-01-01,2024-01-31,Office supplies
+Upstream Transport,1000,tonne-km,0.00011,kgCO2e/tonne-km,DESNZ 2025,Scope 3,Logistics,2024-01-01,2024-01-31,Freight transport
+Fuel & Energy Related,15000,kWh,0.00003,kgCO2e/kWh,DESNZ 2025,Scope 3,Main Office,2024-01-01,2024-01-31,Transmission losses

@@ -1,0 +1,19 @@
+Emission Source,Site/Location,Activity Data,Unit,Start Date,End Date,Notes
+Natural Gas,Main Office,1500,kWh,2024-01-01,2024-01-31,Office heating
+Diesel,Fleet,800,litres,2024-01-01,2024-01-31,Company vehicles
+Petrol,Fleet,500,litres,2024-01-01,2024-01-31,Company cars
+LPG,Backup Generator,200,kg,2024-01-01,2024-01-31,Emergency generator
+Refrigerants,Main Office,5,kg,2024-01-01,2024-01-31,AC refrigerant top-up
+Electricity,Main Office,25000,kWh,2024-01-01,2024-01-31,Office electricity
+Electricity,Warehouse,12000,kWh,2024-01-01,2024-01-31,Warehouse electricity
+District Heating,Main Office,5000,kWh,2024-01-01,2024-01-31,Building heating
+District Cooling,Main Office,3000,kWh,2024-01-01,2024-01-31,Building cooling
+Air Travel - Domestic,Business Travel,2000,passenger-km,2024-01-01,2024-01-31,Domestic flights
+Air Travel - International,Business Travel,5000,passenger-km,2024-01-01,2024-01-31,International flights
+Rail Travel,Business Travel,1500,passenger-km,2024-01-01,2024-01-31,Train travel
+Taxi/Car Hire,Business Travel,800,passenger-km,2024-01-01,2024-01-31,Rental cars
+Employee Commuting,Employee Commuting,3000,passenger-km,2024-01-01,2024-01-31,Staff commute
+Waste to Landfill,Main Office,1200,kg,2024-01-01,2024-01-31,General waste
+Recycling,Main Office,500,kg,2024-01-01,2024-01-31,Recycled materials
+Water,Main Office,500,m³,2024-01-01,2024-01-31,Water consumption
+Wastewater,Main Office,450,m³,2024-01-01,2024-01-31,Wastewater discharge

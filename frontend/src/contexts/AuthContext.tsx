@@ -31,12 +31,13 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   useEffect(() => {
     const initAuth = async () => {
-      // SKIP LOGIN - Create mock user directly
+      // SKIP LOGIN - Create mock user with default IDs from in-memory storage
       const mockUser = {
-        id: 'mock-user-id',
-        email: 'demo@test.com',
+        id: 'user_default',
+        email: 'admin@demo.com',
+        name: 'Admin User',
         role: 'ADMIN' as const,
-        customerId: 'mock-customer-id',
+        customerId: 'customer_default',
         customerName: 'Demo Company',
         createdAt: new Date().toISOString()
       }

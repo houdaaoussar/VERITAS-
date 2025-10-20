@@ -388,9 +388,9 @@ export const uploadsApi = {
     status: string
     ingestData?: any
   }> => {
-    // Check if this is a mock customer - use test endpoint
+    // Check if this is a mock/test customer - use test endpoint
     const customerId = formData.get('customerId');
-    if (customerId === 'mock-customer-id') {
+    if (customerId === 'mock-customer-id' || customerId === 'customer_default') {
       // Use the ingest test endpoint and get real data
       const response = await api.post('/ingest/test', formData, {
         headers: { 'Content-Type': 'multipart/form-data' }

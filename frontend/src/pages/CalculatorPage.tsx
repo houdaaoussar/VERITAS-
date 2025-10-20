@@ -67,8 +67,9 @@ const convertUploadedDataToCalculator = (uploadedData: any[]): ActivityRow[] => 
     const hasData = Object.values(row).some(val => val && val !== '-' && val !== 'undefined');
     return hasData && row.rowIndex;
   }).map((row, index) => {
-    // Try multiple field names for emission type
+    // Try multiple field names for emission type/source
     const emissionType = (
+      row['Emission Source'] ||  // Our CSV template uses this!
       row['Fuel type or activity'] ||
       row['Emission Type'] || 
       row['emission_category'] || 
@@ -76,11 +77,14 @@ const convertUploadedDataToCalculator = (uploadedData: any[]): ActivityRow[] => 
       row['Category'] || 
       row['Fuel Type'] ||
       row['Source'] ||
+      row['scope'] ||  // Backend might map to this
       ''
     ).toString().trim();
     
     // Try multiple field names for quantity
     const quantityValue = 
+      row['Activity Data'] ||  // Our CSV template uses this!
+      row['Activity data'] ||
       row['Activity data - Amount'] ||
       row['Consumption'] || 
       row['quantity'] || 
@@ -93,9 +97,9 @@ const convertUploadedDataToCalculator = (uploadedData: any[]): ActivityRow[] => 
     
     // Try multiple field names for unit
     const unit = (
+      row['Unit'] ||  // Our CSV template uses this!
+      row['unit'] ||
       row['Activity data - Unit'] ||
-      row['Unit'] || 
-      row['unit'] || 
       row['Units'] ||
       row['UOM'] ||
       'kWh'
@@ -103,10 +107,11 @@ const convertUploadedDataToCalculator = (uploadedData: any[]): ActivityRow[] => 
     
     // Try multiple field names for location/site
     const location = (
-      row['CRF - Sector'] ||
+      row['Site/Location'] ||  // Our CSV template uses this!
+      row['Site'] ||
       row['Location'] || 
       row['site_name'] || 
-      row['Site'] ||
+      row['CRF - Sector'] ||
       row['Facility'] ||
       row['Building'] ||
       'Unknown'
@@ -165,9 +170,50 @@ export const CalculatorPage: React.FC = () => {
         const convertedData = convertUploadedDataToCalculator(uploadedData);
         console.log('🔍 Converted data:', convertedData);
         console.log('🔍 First converted row:', convertedData[0]);
-        setScope1Data(convertedData);
+        
+        // Separate data by scope based on emission type
+        const scope1Items: ActivityRow[] = [];
+        const scope2Items: ActivityRow[] = [];
+        const scope3Items: ActivityRow[] = [];
+        
+        convertedData.forEach(item => {
+          const sourceLower = item.source.toLowerCase();
+          
+          // Scope 1: Direct emissions (combustion, fugitive)
+          if (sourceLower.includes('natural gas') || 
+              sourceLower.includes('diesel') || 
+              sourceLower.includes('petrol') || 
+              sourceLower.includes('gasoline') ||
+              sourceLower.includes('lpg') || 
+              sourceLower.includes('propane') ||
+              sourceLower.includes('coal') ||
+              sourceLower.includes('fuel oil') ||
+              sourceLower.includes('refrigerant')) {
+            scope1Items.push(item);
+          }
+          // Scope 2: Purchased energy
+          else if (sourceLower.includes('electricity') || 
+                   sourceLower.includes('district heating') ||
+                   sourceLower.includes('district cooling') ||
+                   sourceLower.includes('steam')) {
+            scope2Items.push(item);
+          }
+          // Scope 3: Everything else (travel, waste, water, etc.)
+          else {
+            scope3Items.push(item as any);
+          }
+        });
+        
+        console.log('🔍 Scope 1 items:', scope1Items.length, scope1Items);
+        console.log('🔍 Scope 2 items:', scope2Items.length, scope2Items);
+        console.log('🔍 Scope 3 items:', scope3Items.length, scope3Items);
+        
+        if (scope1Items.length > 0) setScope1Data(scope1Items);
+        if (scope2Items.length > 0) setScope2Data(scope2Items);
+        if (scope3Items.length > 0) setScope3Data(scope3Items as any);
+        
         setDataSource('uploaded');
-        toast.success(`Loaded ${convertedData.length} emission activities from your upload!`);
+        toast.success(`Loaded ${convertedData.length} emission activities! Scope 1: ${scope1Items.length}, Scope 2: ${scope2Items.length}, Scope 3: ${scope3Items.length}`);
       } catch (error) {
         console.error('Failed to load uploaded data:', error);
       }

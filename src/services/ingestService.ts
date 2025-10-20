@@ -1,6 +1,6 @@
 import * as XLSX from 'xlsx';
 import { compareTwoStrings } from 'string-similarity';
-import { PrismaClient } from '@prisma/client';
+import { db as prisma } from '../storage/storageAdapter';
 import {
   TARGET_FIELDS,
   FIELD_SYNONYMS,
@@ -13,8 +13,6 @@ import {
   TargetField
 } from '../config/mapping';
 import { logger } from '../utils/logger';
-
-const prisma = new PrismaClient();
 
 export interface HeaderMapping {
   targetField: TargetField;
@@ -433,12 +431,9 @@ export function validateRows(rows: any[]): {
 export async function getAvailableCategories(): Promise<EmissionCategory[]> {
   try {
     // Query the database for available emission factors
-    const factors = await prisma.emissionFactor.findMany({
-      select: { category: true },
-      distinct: ['category']
-    });
+    const factors = await prisma.emissionFactor.findMany();
     
-    const dbCategories = factors.map(f => f.category);
+    const dbCategories = [...new Set(factors.map(f => f.category))];
     
     // Filter to only return categories that match our predefined list
     const availableCategories = EMISSION_CATEGORIES.filter(cat => 
@@ -577,19 +572,23 @@ export async function saveIngestedData(
   for (const row of data) {
     try {
       // Find the site by name
-      const site = await prisma.site.findFirst({
-        where: {
-          customerId,
-          name: {
-            equals: row.site_name,
-            mode: 'insensitive'
-          }
+      // Find or create the site
+      let site = await prisma.site.findFirst({
+        customerId,
+        name: {
+          equals: row.site_name,
+          mode: 'insensitive'
         }
       });
 
+      // Auto-create site if it doesn't exist
       if (!site) {
-        errors.push(`Site not found: ${row.site_name}`);
-        continue;
+        site = await prisma.site.create({
+          customerId,
+          name: row.site_name,
+          country: 'UK' // Default country
+        });
+        logger.info(`Auto-created site: ${row.site_name}`);
       }
 
       // Map emission category to activity type
@@ -597,18 +596,16 @@ export async function saveIngestedData(
 
       // Create activity
       await prisma.activity.create({
-        data: {
-          siteId: site.id,
-          periodId,
-          type: activityType,
-          quantity: row.quantity,
-          unit: row.unit,
-          activityDateStart: row.activity_date_start,
-          activityDateEnd: row.activity_date_end,
-          uploadId,
-          notes: row.notes || null,
-          source: 'FILE_UPLOAD'
-        }
+        siteId: site.id,
+        periodId,
+        type: activityType,
+        quantity: row.quantity,
+        unit: row.unit,
+        activityDateStart: new Date(row.activity_date_start),
+        activityDateEnd: new Date(row.activity_date_end),
+        uploadId,
+        notes: row.notes || undefined,
+        source: 'FILE_UPLOAD'
       });
 
       created++;

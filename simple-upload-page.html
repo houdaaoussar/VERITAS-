@@ -1,0 +1,475 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Emissions Data Upload - No Login Required</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        .container {
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            max-width: 800px;
+            width: 100%;
+            padding: 40px;
+        }
+
+        h1 {
+            color: #333;
+            margin-bottom: 10px;
+            font-size: 32px;
+        }
+
+        .subtitle {
+            color: #666;
+            margin-bottom: 30px;
+            font-size: 16px;
+        }
+
+        .upload-area {
+            border: 3px dashed #667eea;
+            border-radius: 15px;
+            padding: 60px 20px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            background: #f8f9ff;
+        }
+
+        .upload-area:hover {
+            border-color: #764ba2;
+            background: #f0f2ff;
+        }
+
+        .upload-area.dragover {
+            border-color: #764ba2;
+            background: #e8ebff;
+            transform: scale(1.02);
+        }
+
+        .upload-icon {
+            font-size: 64px;
+            margin-bottom: 20px;
+        }
+
+        .upload-text {
+            font-size: 18px;
+            color: #333;
+            margin-bottom: 10px;
+        }
+
+        .upload-hint {
+            font-size: 14px;
+            color: #999;
+        }
+
+        .file-input {
+            display: none;
+        }
+
+        .button {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 15px 40px;
+            border-radius: 10px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.2s ease;
+            margin: 10px 5px;
+        }
+
+        .button:hover {
+            transform: translateY(-2px);
+        }
+
+        .button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .button-secondary {
+            background: white;
+            color: #667eea;
+            border: 2px solid #667eea;
+        }
+
+        .selected-file {
+            margin: 20px 0;
+            padding: 15px;
+            background: #f0f2ff;
+            border-radius: 10px;
+            display: none;
+        }
+
+        .selected-file.show {
+            display: block;
+        }
+
+        .file-name {
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 5px;
+        }
+
+        .file-size {
+            font-size: 14px;
+            color: #666;
+        }
+
+        .progress-bar {
+            width: 100%;
+            height: 8px;
+            background: #e0e0e0;
+            border-radius: 10px;
+            overflow: hidden;
+            margin: 20px 0;
+            display: none;
+        }
+
+        .progress-bar.show {
+            display: block;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
+            width: 0%;
+            transition: width 0.3s ease;
+        }
+
+        .result {
+            margin-top: 30px;
+            padding: 20px;
+            border-radius: 10px;
+            display: none;
+        }
+
+        .result.show {
+            display: block;
+        }
+
+        .result.success {
+            background: #d4edda;
+            border: 1px solid #c3e6cb;
+            color: #155724;
+        }
+
+        .result.error {
+            background: #f8d7da;
+            border: 1px solid #f5c6cb;
+            color: #721c24;
+        }
+
+        .result-title {
+            font-weight: 600;
+            font-size: 18px;
+            margin-bottom: 10px;
+        }
+
+        .result-details {
+            font-size: 14px;
+            line-height: 1.6;
+        }
+
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 15px;
+            margin-top: 15px;
+        }
+
+        .stat-card {
+            background: white;
+            padding: 15px;
+            border-radius: 8px;
+            text-align: center;
+        }
+
+        .stat-number {
+            font-size: 32px;
+            font-weight: 700;
+            color: #667eea;
+        }
+
+        .stat-label {
+            font-size: 12px;
+            color: #666;
+            margin-top: 5px;
+        }
+
+        .links {
+            margin-top: 30px;
+            padding-top: 30px;
+            border-top: 1px solid #e0e0e0;
+            text-align: center;
+        }
+
+        .links a {
+            color: #667eea;
+            text-decoration: none;
+            margin: 0 15px;
+            font-weight: 500;
+        }
+
+        .links a:hover {
+            text-decoration: underline;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #667eea;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 20px auto;
+            display: none;
+        }
+
+        .spinner.show {
+            display: block;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🌱 Emissions Data Upload</h1>
+        <p class="subtitle">Upload your CSV file to track carbon emissions - No login required!</p>
+
+        <div class="upload-area" id="uploadArea">
+            <div class="upload-icon">📁</div>
+            <div class="upload-text">Drag & drop your CSV file here</div>
+            <div class="upload-hint">or click to browse</div>
+            <input type="file" id="fileInput" class="file-input" accept=".csv,.xlsx,.xls">
+        </div>
+
+        <div class="selected-file" id="selectedFile">
+            <div class="file-name" id="fileName"></div>
+            <div class="file-size" id="fileSize"></div>
+        </div>
+
+        <div style="text-align: center; margin-top: 20px;">
+            <button class="button" id="uploadBtn" disabled>Upload & Process</button>
+            <button class="button button-secondary" id="downloadTemplate">Download Template</button>
+        </div>
+
+        <div class="progress-bar" id="progressBar">
+            <div class="progress-fill" id="progressFill"></div>
+        </div>
+
+        <div class="spinner" id="spinner"></div>
+
+        <div class="result" id="result">
+            <div class="result-title" id="resultTitle"></div>
+            <div class="result-details" id="resultDetails"></div>
+            <div class="stats" id="stats"></div>
+        </div>
+
+        <div class="links">
+            <a href="http://localhost:3000/api/ingest/template" target="_blank">View Template JSON</a>
+            <a href="http://localhost:3000/api/ingest/help" target="_blank">API Documentation</a>
+            <a href="http://localhost:3001" target="_blank">Full Dashboard</a>
+        </div>
+    </div>
+
+    <script>
+        const uploadArea = document.getElementById('uploadArea');
+        const fileInput = document.getElementById('fileInput');
+        const selectedFile = document.getElementById('selectedFile');
+        const fileName = document.getElementById('fileName');
+        const fileSize = document.getElementById('fileSize');
+        const uploadBtn = document.getElementById('uploadBtn');
+        const downloadTemplate = document.getElementById('downloadTemplate');
+        const progressBar = document.getElementById('progressBar');
+        const progressFill = document.getElementById('progressFill');
+        const spinner = document.getElementById('spinner');
+        const result = document.getElementById('result');
+        const resultTitle = document.getElementById('resultTitle');
+        const resultDetails = document.getElementById('resultDetails');
+        const stats = document.getElementById('stats');
+
+        let selectedFileData = null;
+
+        // Click to upload
+        uploadArea.addEventListener('click', () => {
+            fileInput.click();
+        });
+
+        // File selection
+        fileInput.addEventListener('change', (e) => {
+            handleFile(e.target.files[0]);
+        });
+
+        // Drag and drop
+        uploadArea.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            uploadArea.classList.add('dragover');
+        });
+
+        uploadArea.addEventListener('dragleave', () => {
+            uploadArea.classList.remove('dragover');
+        });
+
+        uploadArea.addEventListener('drop', (e) => {
+            e.preventDefault();
+            uploadArea.classList.remove('dragover');
+            handleFile(e.dataTransfer.files[0]);
+        });
+
+        function handleFile(file) {
+            if (!file) return;
+
+            if (!file.name.match(/\.(csv|xlsx|xls)$/i)) {
+                showResult(false, 'Invalid file type', 'Please upload a CSV or Excel file.');
+                return;
+            }
+
+            selectedFileData = file;
+            fileName.textContent = file.name;
+            fileSize.textContent = formatFileSize(file.size);
+            selectedFile.classList.add('show');
+            uploadBtn.disabled = false;
+            result.classList.remove('show');
+        }
+
+        function formatFileSize(bytes) {
+            if (bytes === 0) return '0 Bytes';
+            const k = 1024;
+            const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            return Math.round(bytes / Math.pow(k, i) * 100) / 100 + ' ' + sizes[i];
+        }
+
+        // Upload button
+        uploadBtn.addEventListener('click', async () => {
+            if (!selectedFileData) return;
+
+            uploadBtn.disabled = true;
+            progressBar.classList.add('show');
+            spinner.classList.add('show');
+            result.classList.remove('show');
+
+            const formData = new FormData();
+            formData.append('file', selectedFileData);
+
+            try {
+                // Simulate progress
+                let progress = 0;
+                const progressInterval = setInterval(() => {
+                    progress += 10;
+                    if (progress <= 90) {
+                        progressFill.style.width = progress + '%';
+                    }
+                }, 200);
+
+                const response = await fetch('http://localhost:3000/api/ingest/test', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                clearInterval(progressInterval);
+                progressFill.style.width = '100%';
+
+                const data = await response.json();
+
+                if (response.ok && data.status === 'success') {
+                    // Save data to localStorage for the calculator page
+                    if (data.data && data.data.length > 0) {
+                        localStorage.setItem('uploadedEmissionData', JSON.stringify(data.data));
+                        console.log('✅ Saved data to localStorage for calculator:', data.data);
+                    }
+                    
+                    showResult(true, '✅ Upload Successful!', 
+                        `Successfully processed ${data.rows_imported} rows. ${data.activities_created} activities created. Data is now available in the Calculator!`,
+                        {
+                            imported: data.rows_imported,
+                            failed: data.rows_failed,
+                            created: data.activities_created
+                        }
+                    );
+                    
+                    // Add button to go to calculator
+                    setTimeout(() => {
+                        const goToCalcBtn = document.createElement('button');
+                        goToCalcBtn.className = 'button';
+                        goToCalcBtn.textContent = '📊 Open Calculator';
+                        goToCalcBtn.style.marginTop = '15px';
+                        goToCalcBtn.onclick = () => {
+                            window.open('http://localhost:3001/calculator', '_blank');
+                        };
+                        stats.appendChild(goToCalcBtn);
+                    }, 500);
+                } else {
+                    showResult(false, '❌ Upload Failed', 
+                        data.message || 'An error occurred while processing your file.'
+                    );
+                }
+            } catch (error) {
+                showResult(false, '❌ Upload Failed', 
+                    'Could not connect to the server. Make sure the backend is running on http://localhost:3000'
+                );
+            } finally {
+                spinner.classList.remove('show');
+                uploadBtn.disabled = false;
+                setTimeout(() => {
+                    progressBar.classList.remove('show');
+                    progressFill.style.width = '0%';
+                }, 1000);
+            }
+        });
+
+        function showResult(success, title, details, statsData = null) {
+            result.className = 'result show ' + (success ? 'success' : 'error');
+            resultTitle.textContent = title;
+            resultDetails.textContent = details;
+
+            if (statsData) {
+                stats.innerHTML = `
+                    <div class="stat-card">
+                        <div class="stat-number">${statsData.imported}</div>
+                        <div class="stat-label">Rows Imported</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-number">${statsData.created}</div>
+                        <div class="stat-label">Activities Created</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-number">${statsData.failed}</div>
+                        <div class="stat-label">Rows Failed</div>
+                    </div>
+                `;
+            } else {
+                stats.innerHTML = '';
+            }
+        }
+
+        // Download template
+        downloadTemplate.addEventListener('click', () => {
+            window.open('http://localhost:3000/api/ingest/template/download', '_blank');
+        });
+    </script>
+</body>
+</html>

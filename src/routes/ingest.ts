@@ -1,6 +1,6 @@
 import express, { Request, Response } from 'express';
 import multer from 'multer';
-import { PrismaClient } from '@prisma/client';
+import { db as prisma } from '../storage/storageAdapter';
 import { 
   ingestFile, 
   saveIngestedData, 
@@ -10,7 +10,6 @@ import { logger } from '../utils/logger';
 import { authenticateToken, requireRole, AuthenticatedRequest } from '../middleware/auth';
 
 const router = express.Router();
-const prisma = new PrismaClient();
 
 // Configure multer for file uploads (memory storage)
 const upload = multer({
@@ -166,9 +165,7 @@ router.post('/', authenticateToken, requireRole(['ADMIN', 'EDITOR']), upload.sin
 
     // Verify customer and period exist if saving
     if (shouldSave) {
-      const customer = await prisma.customer.findUnique({
-        where: { id: customerId as string }
-      });
+      const customer = await prisma.customer.findUnique({ id: customerId as string });
 
       if (!customer) {
         return res.status(404).json({
@@ -177,9 +174,7 @@ router.post('/', authenticateToken, requireRole(['ADMIN', 'EDITOR']), upload.sin
         });
       }
 
-      const period = await prisma.reportingPeriod.findUnique({
-        where: { id: periodId as string }
-      });
+      const period = await prisma.reportingPeriod.findUnique({ id: periodId as string });
 
       if (!period) {
         return res.status(404).json({
@@ -211,15 +206,13 @@ router.post('/', authenticateToken, requireRole(['ADMIN', 'EDITOR']), upload.sin
     if (shouldSave && result.data.length > 0) {
       // Create upload record
       uploadRecord = await prisma.upload.create({
-        data: {
-          customerId: customerId as string,
-          periodId: periodId as string,
-          originalFilename: req.file.originalname,
-          filename: `ingest_${Date.now()}_${req.file.originalname}`,
-          uploadedBy: req.user!.id,
-          status: 'processing',
-          errorCount: result.rows_failed
-        }
+        customerId: customerId as string,
+        periodId: periodId as string,
+        originalFilename: req.file.originalname,
+        filename: `ingest_${Date.now()}_${req.file.originalname}`,
+        uploadedBy: req.user!.id,
+        status: 'processing',
+        errorCount: result.rows_failed
       });
 
       // Save the data
@@ -231,9 +224,9 @@ router.post('/', authenticateToken, requireRole(['ADMIN', 'EDITOR']), upload.sin
       );
 
       // Update upload record
-      await prisma.upload.update({
-        where: { id: uploadRecord.id },
-        data: {
+      await prisma.upload.update(
+        { id: uploadRecord.id },
+        {
           status: saveResult.errors.length > 0 ? 'completed_with_errors' : 'completed',
           errorCount: saveResult.errors.length,
           validationResults: JSON.stringify({
@@ -242,7 +235,7 @@ router.post('/', authenticateToken, requireRole(['ADMIN', 'EDITOR']), upload.sin
             errors: saveResult.errors
           })
         }
-      });
+      );
 
       logger.info('Data saved to database', {
         uploadId: uploadRecord.id,
@@ -289,55 +282,126 @@ router.post('/', authenticateToken, requireRole(['ADMIN', 'EDITOR']), upload.sin
 
 /**
  * GET /api/ingest/template
- * Returns a template file with expected column headers
+ * Returns a simple template structure for users to upload their activity data
  */
 router.get('/template', authenticateToken, (req: AuthenticatedRequest, res: Response) => {
   const template = {
     columns: [
-      'Emission Category',
-      'Site Name',
-      'Quantity',
+      'Emission Source',
+      'Site/Location',
+      'Activity Data',
       'Unit',
-      'Activity Date Start',
-      'Activity Date End',
+      'Start Date',
+      'End Date',
       'Notes'
     ],
     example_rows: [
       {
-        'Emission Category': 'Natural Gas',
-        'Site Name': 'Main Office',
-        'Quantity': 1500,
+        'Emission Source': 'Natural Gas',
+        'Site/Location': 'Main Office',
+        'Activity Data': 1500,
         'Unit': 'kWh',
-        'Activity Date Start': '2024-01-01',
-        'Activity Date End': '2024-01-31',
-        'Notes': 'January consumption'
+        'Start Date': '2024-01-01',
+        'End Date': '2024-01-31',
+        'Notes': 'Office heating'
       },
       {
-        'Emission Category': 'Diesel',
-        'Site Name': 'Warehouse',
-        'Quantity': 250,
+        'Emission Source': 'Electricity',
+        'Site/Location': 'Main Office',
+        'Activity Data': 25000,
+        'Unit': 'kWh',
+        'Start Date': '2024-01-01',
+        'End Date': '2024-01-31',
+        'Notes': 'Office electricity'
+      },
+      {
+        'Emission Source': 'Diesel',
+        'Site/Location': 'Fleet',
+        'Activity Data': 800,
         'Unit': 'litres',
-        'Activity Date Start': '2024-01-01',
-        'Activity Date End': '2024-01-31',
-        'Notes': 'Fleet fuel'
+        'Start Date': '2024-01-01',
+        'End Date': '2024-01-31',
+        'Notes': 'Company vehicles'
+      },
+      {
+        'Emission Source': 'Air Travel - International',
+        'Site/Location': 'Business Travel',
+        'Activity Data': 5000,
+        'Unit': 'passenger-km',
+        'Start Date': '2024-01-01',
+        'End Date': '2024-01-31',
+        'Notes': 'International flights'
       }
     ],
-    supported_categories: [
-      'Stationary Combustion (Natural Gas)',
-      'Mobile Combustion (Diesel)',
-      'Process Emissions',
-      'Fugitive Emissions (Refrigerants)',
-      'Stationary Combustion (LPG)'
-    ],
+    supported_emission_sources: {
+      'Scope 1 (Direct Emissions)': [
+        'Natural Gas',
+        'Diesel',
+        'Petrol',
+        'LPG',
+        'Refrigerants',
+        'Coal',
+        'Fuel Oil'
+      ],
+      'Scope 2 (Purchased Energy)': [
+        'Electricity',
+        'District Heating',
+        'District Cooling',
+        'Steam'
+      ],
+      'Scope 3 (Indirect Emissions)': [
+        'Air Travel - Domestic',
+        'Air Travel - International',
+        'Rail Travel',
+        'Taxi/Car Hire',
+        'Employee Commuting',
+        'Waste to Landfill',
+        'Recycling',
+        'Water',
+        'Wastewater'
+      ]
+    },
     notes: [
+      'Simply enter your emission source name - the system will automatically determine the scope',
+      'The system will automatically select appropriate emission factors based on your data',
       'Column names are flexible - the system will intelligently map similar names',
-      'Dates can be in various formats (YYYY-MM-DD, DD/MM/YYYY, etc.)',
-      'Emission categories can use common names (e.g., "Natural Gas", "Diesel")',
+      'Dates should be in YYYY-MM-DD format',
       'All columns except Notes are required'
     ]
   };
 
   res.json(template);
+});
+
+/**
+ * GET /api/ingest/template/download
+ * Downloads a simple CSV template file with examples covering all emission scopes
+ * Users only need to provide their activity data - the system handles scope classification and emission factors
+ */
+router.get('/template/download', authenticateToken, (req: AuthenticatedRequest, res: Response) => {
+  const csvContent = `Emission Source,Site/Location,Activity Data,Unit,Start Date,End Date,Notes
+Natural Gas,Main Office,1500,kWh,2024-01-01,2024-01-31,Office heating
+Diesel,Fleet,800,litres,2024-01-01,2024-01-31,Company vehicles
+Petrol,Fleet,500,litres,2024-01-01,2024-01-31,Company cars
+LPG,Backup Generator,200,kg,2024-01-01,2024-01-31,Emergency generator
+Refrigerants,Main Office,5,kg,2024-01-01,2024-01-31,AC refrigerant top-up
+Electricity,Main Office,25000,kWh,2024-01-01,2024-01-31,Office electricity
+Electricity,Warehouse,12000,kWh,2024-01-01,2024-01-31,Warehouse electricity
+District Heating,Main Office,5000,kWh,2024-01-01,2024-01-31,Building heating
+District Cooling,Main Office,3000,kWh,2024-01-01,2024-01-31,Building cooling
+Air Travel - Domestic,Business Travel,2000,passenger-km,2024-01-01,2024-01-31,Domestic flights
+Air Travel - International,Business Travel,5000,passenger-km,2024-01-01,2024-01-31,International flights
+Rail Travel,Business Travel,1500,passenger-km,2024-01-01,2024-01-31,Train travel
+Taxi/Car Hire,Business Travel,800,passenger-km,2024-01-01,2024-01-31,Rental cars
+Employee Commuting,Employee Commuting,3000,passenger-km,2024-01-01,2024-01-31,Staff commute
+Waste to Landfill,Main Office,1200,kg,2024-01-01,2024-01-31,General waste
+Recycling,Main Office,500,kg,2024-01-01,2024-01-31,Recycled materials
+Water,Main Office,500,m³,2024-01-01,2024-01-31,Water consumption
+Wastewater,Main Office,450,m³,2024-01-01,2024-01-31,Wastewater discharge`;
+
+  res.setHeader('Content-Type', 'text/csv');
+  res.setHeader('Content-Disposition', 'attachment; filename=emissions_data_template.csv');
+  res.status(200).send(csvContent);
 });
 
 /**
@@ -378,10 +442,85 @@ router.get('/help', authenticateToken, (req: AuthenticatedRequest, res: Response
     },
     other_endpoints: {
       'GET /api/ingest/categories': 'List available emission categories',
-      'GET /api/ingest/template': 'Get template structure',
+      'GET /api/ingest/template': 'Get simple template structure (JSON) - just activity data needed',
+      'GET /api/ingest/template/download': 'Download CSV template - system auto-calculates scopes and emission factors',
       'GET /api/ingest/help': 'This help documentation'
     }
   });
+});
+
+/**
+ * POST /api/ingest/test
+ * Test endpoint without authentication for demo purposes
+ */
+router.post('/test', upload.single('file'), async (req: Request, res: Response) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({
+        status: 'error',
+        message: 'No file uploaded'
+      });
+    }
+
+    const customerId = 'customer_default';
+    const periodId = 'period_default';
+
+    // Process the file
+    const result = await ingestFile(req.file.buffer);
+
+    if (result.status === 'error') {
+      return res.status(400).json(result);
+    }
+
+    // Save to database
+    let uploadRecord;
+    let saveResult;
+
+    if (result.data.length > 0) {
+      uploadRecord = await prisma.upload.create({
+        customerId,
+        periodId,
+        originalFilename: req.file.originalname,
+        filename: `test_${Date.now()}_${req.file.originalname}`,
+        uploadedBy: 'user_default',
+        status: 'processing',
+        errorCount: result.rows_failed
+      });
+
+      saveResult = await saveIngestedData(
+        result.data,
+        customerId,
+        periodId,
+        uploadRecord.id
+      );
+
+      await prisma.upload.update(
+        { id: uploadRecord.id },
+        {
+          status: saveResult.errors.length > 0 ? 'completed_with_errors' : 'completed',
+          errorCount: saveResult.errors.length
+        }
+      );
+    }
+
+    res.json({
+      status: 'success',
+      message: `Successfully processed and saved ${result.rows_imported} rows`,
+      rows_imported: result.rows_imported,
+      rows_failed: result.rows_failed,
+      activities_created: saveResult?.created || 0,
+      save_errors: saveResult?.errors || [],
+      data: result.data // Include the processed data for calculator
+    });
+
+  } catch (error) {
+    logger.error('Test ingest error', { error: (error as Error).message });
+    res.status(500).json({
+      status: 'error',
+      message: 'Internal server error',
+      error: (error as Error).message
+    });
+  }
 });
 
 export const ingestRoutes = router;
