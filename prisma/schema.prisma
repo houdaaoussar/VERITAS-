@@ -26,6 +26,7 @@ model Customer {
   uploads          Upload[]
   calcRuns         CalcRun[]
   projects         Project[]
+  estimationInputs EstimationInput[]
 
   @@map("customers")
 }
@@ -71,10 +72,11 @@ model User {
   updatedAt  DateTime @updatedAt @map("updated_at")
 
   // Relationships
-  customer Customer   @relation(fields: [customerId], references: [id], onDelete: Cascade)
-  uploads  Upload[]
-  calcRuns CalcRun[]
-  auditLog AuditLog[]
+  customer          Customer          @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  uploads           Upload[]
+  calcRuns          CalcRun[]
+  auditLog          AuditLog[]
+  estimationInputs  EstimationInput[]
 
   @@map("users")
 }
@@ -93,10 +95,11 @@ model ReportingPeriod {
   updatedAt  DateTime     @updatedAt @map("updated_at")
 
   // Relationships
-  customer   Customer   @relation(fields: [customerId], references: [id], onDelete: Cascade)
-  activities Activity[]
-  calcRuns   CalcRun[]
-  uploads    Upload[]
+  customer          Customer          @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  activities        Activity[]
+  calcRuns          CalcRun[]
+  uploads           Upload[]
+  estimationInputs  EstimationInput[]
 
   @@map("reporting_periods")
 }
@@ -271,4 +274,52 @@ model AuditLog {
   user User @relation(fields: [actor], references: [id])
 
   @@map("audit_log")
+}
+
+// Estimation Inputs for Scope 3 emissions when direct data is not available
+model EstimationInput {
+  id                      String   @id @default(auto()) @map("_id") @db.ObjectId
+  customerId              String   @db.ObjectId @map("customer_id")
+  reportingPeriodId       String   @db.ObjectId @map("reporting_period_id")
+  createdBy               String   @db.ObjectId @map("created_by")
+  
+  // Employee Commuting Inputs
+  numberOfEmployees       Int?     @map("number_of_employees")
+  avgCommuteKm            Float?   @map("avg_commute_km")
+  avgWorkdaysPerYear      Int?     @map("avg_workdays_per_year")
+  transportSplitCar       Float?   @map("transport_split_car")       // Percentage (0-100)
+  transportSplitPublic    Float?   @map("transport_split_public")    // Percentage (0-100)
+  transportSplitWalk      Float?   @map("transport_split_walk")      // Percentage (0-100)
+  
+  // Business Travel Inputs
+  businessTravelSpendGBP  Float?   @map("business_travel_spend_gbp")
+  avgFlightDistanceKm     Float?   @map("avg_flight_distance_km")
+  numberOfFlights         Int?     @map("number_of_flights")
+  
+  // Purchased Goods & Services
+  annualSpendGoodsGBP     Float?   @map("annual_spend_goods_gbp")
+  annualSpendServicesGBP  Float?   @map("annual_spend_services_gbp")
+  
+  // Waste Generated
+  wasteTonnes             Float?   @map("waste_tonnes")
+  wasteRecycledPercent    Float?   @map("waste_recycled_percent")    // Percentage (0-100)
+  
+  // Office/Facility Data
+  officeAreaM2            Float?   @map("office_area_m2")
+  dataCenter              Boolean? @map("data_center") @default(false)
+  dataCenterServers       Int?     @map("data_center_servers")
+  
+  // Confidence & Metadata
+  confidenceLevel         String?  @map("confidence_level") @default("MEDIUM") // HIGH, MEDIUM, LOW
+  notes                   String?
+  createdAt               DateTime @default(now()) @map("created_at")
+  updatedAt               DateTime @updatedAt @map("updated_at")
+
+  // Relationships
+  customer        Customer        @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  reportingPeriod ReportingPeriod @relation(fields: [reportingPeriodId], references: [id], onDelete: Cascade)
+  creator         User            @relation(fields: [createdBy], references: [id])
+
+  @@unique([customerId, reportingPeriodId])
+  @@map("estimation_inputs")
 }

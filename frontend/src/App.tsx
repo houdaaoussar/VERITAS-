@@ -17,6 +17,7 @@ const EmissionsInventoryUploadPage = React.lazy(() => import('./pages/EmissionsI
 const SettingsPage = React.lazy(() => import('./pages/SettingsPage').then(module => ({ default: module.SettingsPage })))
 const CalculatorPage = React.lazy(() => import('./pages/CalculatorPage').then(module => ({ default: module.CalculatorPage })))
 const EmissionsReportPage = React.lazy(() => import('./pages/EmissionsReportPage'))
+const EstimationInputPage = React.lazy(() => import('./pages/EstimationInputPage'))
 
 // Loading component
 const LoadingSpinner = () => (
@@ -50,6 +51,7 @@ function App() {
                       <Route path="/emissions-inventory-upload" element={<EmissionsInventoryUploadPage />} />
                       <Route path="/settings" element={<SettingsPage />} />
                       <Route path="/calculator" element={<CalculatorPage />} />
+                      <Route path="/reporting/:periodId/estimation" element={<EstimationInputPage />} />
                     </Routes>
                   </Suspense>
                 </Layout>
