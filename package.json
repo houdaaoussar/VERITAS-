@@ -8,6 +8,8 @@
     "dev:backend": "nodemon src/server-simple.ts",
     "dev:frontend": "cd frontend && npm run dev",
     "build": "tsc",
+    "build:frontend": "cd frontend && npm install && npm run build",
+    "build:all": "npm run build && npm run build:frontend",
     "start": "node dist/server-simple.js",
     "postinstall": "echo 'Skipping Prisma - using in-memory storage'",
     "test": "jest",
@@ -17,7 +19,9 @@
     "db:migrate": "npx prisma migrate dev",
     "db:generate": "npx prisma generate",
     "db:seed": "ts-node scripts/seed.ts",
-    "generate-template": "ts-node scripts/generateEmissionsTemplate.ts"
+    "generate-template": "ts-node scripts/generateEmissionsTemplate.ts",
+    "docker:build": "docker build -t colab-veritas .",
+    "docker:run": "docker run -p 3000:3000 --env-file .env colab-veritas"
   },
   "keywords": [
     "sustainability",
