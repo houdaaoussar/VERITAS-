@@ -1,13 +1,4 @@
 version: 1
-backend:
-  phases:
-    preBuild:
-      commands:
-        - npm ci
-        - npx prisma generate
-    build:
-      commands:
-        - npm run build
 frontend:
   phases:
     preBuild:
@@ -23,5 +14,4 @@ frontend:
       - '**/*'
   cache:
     paths:
-      - node_modules/**/*
       - frontend/node_modules/**/*
