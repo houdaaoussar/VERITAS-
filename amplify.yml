@@ -4,6 +4,7 @@ backend:
     preBuild:
       commands:
         - npm ci
+        - npx prisma generate
     build:
       commands:
         - npm run build
