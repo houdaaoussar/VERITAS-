@@ -207,8 +207,28 @@ router.post('/:id/parse', authenticateToken, async (req: AuthenticatedRequest, r
       throw createError('Access denied', 403, 'FORBIDDEN');
     }
 
-    const filePath = path.join(uploadDir, upload.s3Key!);
-    if (!fs.existsSync(filePath)) {
+    // Download file from MongoDB GridFS if it's stored there
+    let filePath = path.join(uploadDir, upload.s3Key!);
+    
+    // Check if file is in MongoDB (s3Key is a MongoDB ObjectId)
+    if (upload.s3Key && upload.s3Key.length === 24 && /^[0-9a-fA-F]{24}$/.test(upload.s3Key)) {
+      try {
+        // Create temp directory if it doesn't exist
+        const tempDir = path.join(process.cwd(), 'temp');
+        if (!fs.existsSync(tempDir)) {
+          fs.mkdirSync(tempDir, { recursive: true });
+        }
+        
+        // Download from MongoDB to temp
+        const tempFilePath = path.join(tempDir, `${upload.id}-${upload.filename}`);
+        await MongoFileStorage.downloadFile(upload.s3Key, tempFilePath);
+        filePath = tempFilePath;
+        logger.info('File downloaded from MongoDB for parsing', { fileId: upload.s3Key });
+      } catch (error) {
+        logger.error('Failed to download file from MongoDB', { error });
+        throw createError('File not found in storage', 404, 'FILE_NOT_FOUND');
+      }
+    } else if (!fs.existsSync(filePath)) {
       throw createError('File not found', 404, 'FILE_NOT_FOUND');
     }
 
@@ -248,6 +268,16 @@ router.post('/:id/parse', authenticateToken, async (req: AuthenticatedRequest, r
         validationResults: JSON.stringify(validationResultData),
       },
     });
+
+    // Clean up temp file if it was downloaded from MongoDB
+    if (filePath.includes('temp')) {
+      try {
+        fs.unlinkSync(filePath);
+        logger.info('Temp file cleaned up', { filePath });
+      } catch (error) {
+        logger.warn('Failed to clean up temp file', { error });
+      }
+    }
 
     res.json({
       totalRows: parsedData.length,
