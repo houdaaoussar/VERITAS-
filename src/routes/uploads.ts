@@ -9,7 +9,6 @@ import { createError } from '../middleware/errorHandler';
 import { authenticateToken, requireRole, AuthenticatedRequest } from '../middleware/auth';
 import { logger } from '../utils/logger';
 import { prisma } from '../config/database';
-import { MongoFileStorage } from '../services/mongoFileStorage';
 
 const router = express.Router();
 
