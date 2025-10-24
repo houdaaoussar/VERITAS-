@@ -9,7 +9,7 @@ import { createError } from '../middleware/errorHandler';
 import { authenticateToken, requireRole, AuthenticatedRequest } from '../middleware/auth';
 import { logger } from '../utils/logger';
 import { prisma } from '../config/database';
-import { S3StorageService } from '../services/s3Storage';
+import { MongoFileStorage } from '../services/mongoFileStorage';
 
 const router = express.Router();
 
@@ -121,19 +121,25 @@ router.post('/', authenticateToken, requireRole(['ADMIN', 'EDITOR']), upload.sin
       throw createError('Access denied', 403, 'FORBIDDEN');
     }
 
-    // Upload to S3 if configured, otherwise use local storage
-    let s3Key = null;
-    if (S3StorageService.isConfigured()) {
-      try {
-        s3Key = await S3StorageService.uploadFile(
-          req.file.path,
-          req.file.originalname,
-          req.file.mimetype
-        );
-        logger.info('File uploaded to S3', { s3Key });
-      } catch (error) {
-        logger.error('S3 upload failed, using local storage', { error });
-      }
+    // Upload to MongoDB GridFS for persistent storage
+    let mongoFileId = null;
+    try {
+      mongoFileId = await MongoFileStorage.uploadFile(
+        req.file.path,
+        req.file.originalname,
+        {
+          customerId,
+          siteId,
+          periodId,
+          mimetype: req.file.mimetype,
+          size: req.file.size,
+          uploadedBy: req.user!.id
+        }
+      );
+      logger.info('File uploaded to MongoDB GridFS', { fileId: mongoFileId });
+    } catch (error) {
+      logger.error('MongoDB upload failed, keeping local file', { error });
+      // If MongoDB upload fails, we'll keep the local file as fallback
     }
 
     // Create upload record
@@ -144,7 +150,7 @@ router.post('/', authenticateToken, requireRole(['ADMIN', 'EDITOR']), upload.sin
         periodId: periodId || null,
         originalFilename: req.file.originalname,
         filename: req.file.filename,
-        s3Key: s3Key || req.file.filename,
+        s3Key: mongoFileId || req.file.filename, // Store MongoDB file ID in s3Key field
         uploadedBy: req.user!.id,
         status: 'PENDING'
       }
