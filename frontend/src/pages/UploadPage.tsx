@@ -13,6 +13,7 @@ import {
   TrashIcon
 } from '@heroicons/react/24/outline';
 import toast from 'react-hot-toast';
+import { parseCSV, readFileAsText } from '../utils/csvParser';
 
 export const UploadPage: React.FC = () => {
   const { user } = useAuth()
@@ -118,7 +119,7 @@ export const UploadPage: React.FC = () => {
     }
   }, [user]);
 
-  const handleFiles = (files: FileList) => {
+  const handleFiles = async (files: FileList) => {
     const file = files[0]
     if (!file) return
 
@@ -129,7 +130,7 @@ export const UploadPage: React.FC = () => {
       'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
     ]
     
-    if (!allowedTypes.includes(file.type)) {
+    if (!allowedTypes.includes(file.type) && !file.name.endsWith('.csv')) {
       toast.error('Please upload a CSV or Excel file')
       return
     }
@@ -140,6 +141,37 @@ export const UploadPage: React.FC = () => {
       return
     }
 
+    // CLIENT-SIDE PARSING: Parse CSV directly in browser
+    if (file.name.endsWith('.csv') || file.type === 'text/csv') {
+      try {
+        toast.loading('Parsing CSV file...');
+        
+        // Read file content
+        const content = await readFileAsText(file);
+        
+        // Parse CSV
+        const result = parseCSV(content);
+        
+        toast.dismiss();
+        toast.success('File parsed successfully!');
+        
+        // Set parsed data for preview
+        setParsedData(result);
+        setCurrentUploadId('client-side-' + Date.now());
+        
+        // Store for import
+        localStorage.setItem('clientSideParsedData', JSON.stringify(result));
+        
+        return;
+      } catch (error: any) {
+        toast.dismiss();
+        toast.error('Failed to parse CSV: ' + error.message);
+        console.error('CSV parsing error:', error);
+        return;
+      }
+    }
+
+    // Fallback: Try backend upload
     const formData = new FormData()
     formData.append('file', file)
     formData.append('customerId', user!.customerId)
