@@ -153,14 +153,21 @@ export const UploadPage: React.FC = () => {
         const result = parseCSV(content);
         
         toast.dismiss();
-        toast.success('File parsed successfully!');
+        toast.success(`File parsed! ${result.validRows} rows ready`);
+        
+        // AUTO-IMPORT: Store directly for calculator - NO PERIOD SELECTION NEEDED
+        if (result.validRows > 0) {
+          // Store all valid data for calculator
+          const validData = result.allData.filter(row => row.errors.length === 0);
+          localStorage.setItem('uploadedEmissionData', JSON.stringify(validData));
+          localStorage.setItem('clientSideParsedData', JSON.stringify(result));
+          
+          toast.success('✅ Data imported! Go to Calculator to use it.', { duration: 5000 });
+        }
         
         // Set parsed data for preview
         setParsedData(result);
         setCurrentUploadId('client-side-' + Date.now());
-        
-        // Store for import
-        localStorage.setItem('clientSideParsedData', JSON.stringify(result));
         
         return;
       } catch (error: any) {

@@ -45,8 +45,9 @@ interface EstimatedEmission {
 const EstimationInputPage: React.FC = () => {
   const navigate = useNavigate();
   
-  const [customerId, setCustomerId] = useState<string>('');
-  const [periodId, setPeriodId] = useState<string>('');
+  // SKIP CUSTOMER/PERIOD SELECTION - Use defaults
+  const [customerId, setCustomerId] = useState<string>('default-customer');
+  const [periodId, setPeriodId] = useState<string>('default-period');
   const [customers, setCustomers] = useState<any[]>([]);
   const [periods, setPeriods] = useState<any[]>([]);
   
@@ -66,23 +67,17 @@ const EstimationInputPage: React.FC = () => {
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
-  // Load customers on mount
+  // SKIP: Don't load customers/periods - not needed
   useEffect(() => {
-    loadCustomers();
+    // Skip customer loading
   }, []);
 
-  // Load periods when customer changes
   useEffect(() => {
-    if (customerId) {
-      loadPeriods();
-    }
+    // Skip period loading
   }, [customerId]);
 
-  // Load existing estimation data when both IDs are set
   useEffect(() => {
-    if (customerId && periodId) {
-      loadEstimationData();
-    }
+    // Skip estimation data loading
   }, [customerId, periodId]);
 
   const loadCustomers = async () => {
@@ -233,8 +228,8 @@ const EstimationInputPage: React.FC = () => {
             </button>
           </div>
           
-          {/* Customer and Period Selection */}
-          <div className="mt-6 grid grid-cols-2 gap-4">
+          {/* HIDDEN: Customer and Period Selection - Not needed anymore */}
+          <div className="hidden mt-6 grid grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">Customer</label>
               <select
