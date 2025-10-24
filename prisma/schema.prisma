@@ -112,6 +112,7 @@ model Upload {
   originalFilename String @map("original_filename")
   filename   String
   s3Key      String?  @map("s3_key")
+  fileContent String?  @map("file_content") // Store file content directly in database
   uploadedBy String   @db.ObjectId @map("uploaded_by")
   uploadedAt DateTime @default(now()) @map("uploaded_at")
   status     String   @default("pending")

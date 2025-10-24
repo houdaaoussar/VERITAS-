@@ -121,28 +121,17 @@ router.post('/', authenticateToken, requireRole(['ADMIN', 'EDITOR']), upload.sin
       throw createError('Access denied', 403, 'FORBIDDEN');
     }
 
-    // Upload to MongoDB GridFS for persistent storage
-    let mongoFileId = null;
+    // SIMPLE SOLUTION: Read file content and store in database
+    let fileContent = '';
     try {
-      mongoFileId = await MongoFileStorage.uploadFile(
-        req.file.path,
-        req.file.originalname,
-        {
-          customerId,
-          siteId,
-          periodId,
-          mimetype: req.file.mimetype,
-          size: req.file.size,
-          uploadedBy: req.user!.id
-        }
-      );
-      logger.info('File uploaded to MongoDB GridFS', { fileId: mongoFileId });
+      fileContent = fs.readFileSync(req.file.path, 'utf-8');
+      logger.info('File content read successfully', { size: fileContent.length });
     } catch (error) {
-      logger.error('MongoDB upload failed, keeping local file', { error });
-      // If MongoDB upload fails, we'll keep the local file as fallback
+      logger.error('Failed to read file content', { error });
+      throw createError('Failed to read file', 500, 'FILE_READ_ERROR');
     }
 
-    // Create upload record
+    // Create upload record with file content stored in database
     const uploadRecord = await prisma.upload.create({
       data: {
         customerId,
@@ -150,11 +139,19 @@ router.post('/', authenticateToken, requireRole(['ADMIN', 'EDITOR']), upload.sin
         periodId: periodId || null,
         originalFilename: req.file.originalname,
         filename: req.file.filename,
-        s3Key: mongoFileId || req.file.filename, // Store MongoDB file ID in s3Key field
+        s3Key: req.file.filename,
+        fileContent: fileContent, // Store content directly in database
         uploadedBy: req.user!.id,
         status: 'PENDING'
       }
     });
+
+    // Delete local file after storing content
+    try {
+      fs.unlinkSync(req.file.path);
+    } catch (error) {
+      logger.warn('Failed to delete temp file', { error });
+    }
 
     logger.info('File uploaded', {
       uploadId: uploadRecord.id,
@@ -207,29 +204,25 @@ router.post('/:id/parse', authenticateToken, async (req: AuthenticatedRequest, r
       throw createError('Access denied', 403, 'FORBIDDEN');
     }
 
-    // Download file from MongoDB GridFS if it's stored there
-    let filePath = path.join(uploadDir, upload.s3Key!);
+    // SIMPLE SOLUTION: Get file content from database and write to temp file
+    let filePath: string;
     
-    // Check if file is in MongoDB (s3Key is a MongoDB ObjectId)
-    if (upload.s3Key && upload.s3Key.length === 24 && /^[0-9a-fA-F]{24}$/.test(upload.s3Key)) {
-      try {
-        // Create temp directory if it doesn't exist
-        const tempDir = path.join(process.cwd(), 'temp');
-        if (!fs.existsSync(tempDir)) {
-          fs.mkdirSync(tempDir, { recursive: true });
-        }
-        
-        // Download from MongoDB to temp
-        const tempFilePath = path.join(tempDir, `${upload.id}-${upload.filename}`);
-        await MongoFileStorage.downloadFile(upload.s3Key, tempFilePath);
-        filePath = tempFilePath;
-        logger.info('File downloaded from MongoDB for parsing', { fileId: upload.s3Key });
-      } catch (error) {
-        logger.error('Failed to download file from MongoDB', { error });
-        throw createError('File not found in storage', 404, 'FILE_NOT_FOUND');
+    if (upload.fileContent) {
+      // File content is stored in database - write to temp file
+      const tempDir = path.join(process.cwd(), 'temp');
+      if (!fs.existsSync(tempDir)) {
+        fs.mkdirSync(tempDir, { recursive: true });
       }
-    } else if (!fs.existsSync(filePath)) {
-      throw createError('File not found', 404, 'FILE_NOT_FOUND');
+      
+      filePath = path.join(tempDir, `${upload.id}-${upload.filename}`);
+      fs.writeFileSync(filePath, upload.fileContent, 'utf-8');
+      logger.info('File content retrieved from database', { uploadId: upload.id });
+    } else {
+      // Fallback to local file (for backwards compatibility)
+      filePath = path.join(uploadDir, upload.s3Key!);
+      if (!fs.existsSync(filePath)) {
+        throw createError('File not found', 404, 'FILE_NOT_FOUND');
+      }
     }
 
     const ext = path.extname(upload.filename).toLowerCase();
