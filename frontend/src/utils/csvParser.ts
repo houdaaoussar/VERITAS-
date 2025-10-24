@@ -106,45 +106,46 @@ function parseCSVLine(line: string): string[] {
 }
 
 /**
- * Validate a parsed row
+ * Validate a parsed row - FLEXIBLE VERSION
  */
 function validateRow(row: ParsedRow, columns: string[]): void {
-  // Check for required columns
-  const requiredColumns = ['Date', 'Site', 'Activity Type', 'Scope', 'Quantity', 'Unit'];
+  // FLEXIBLE: Accept any columns, just validate data if present
   
-  for (const col of requiredColumns) {
-    const colVariations = [col, col.toLowerCase(), col.replace(/ /g, '_').toLowerCase()];
-    const found = columns.some(c => colVariations.includes(c.toLowerCase()));
-    
-    if (!found) {
-      row.errors.push(`Missing required column: ${col}`);
-      continue;
-    }
+  // Find columns by flexible matching
+  const dateCol = columns.find(c => 
+    c.toLowerCase().includes('date') || 
+    c.toLowerCase().includes('time') ||
+    c.toLowerCase().includes('period')
+  );
+  
+  const quantityCol = columns.find(c => 
+    c.toLowerCase().includes('quantity') || 
+    c.toLowerCase().includes('amount') ||
+    c.toLowerCase().includes('value')
+  );
 
-    // Find the actual column name
-    const actualCol = columns.find(c => colVariations.includes(c.toLowerCase()));
-    if (actualCol && !row[actualCol]) {
-      row.errors.push(`${col} is required`);
-    }
-  }
-
-  // Validate quantity is a number
-  const quantityCol = columns.find(c => c.toLowerCase().includes('quantity'));
+  // Only validate if columns exist and have values
   if (quantityCol && row[quantityCol]) {
     const quantity = parseFloat(row[quantityCol]);
     if (isNaN(quantity)) {
       row.errors.push('Quantity must be a number');
+    } else if (quantity < 0) {
+      row.errors.push('Quantity cannot be negative');
     }
   }
 
-  // Validate date format
-  const dateCol = columns.find(c => c.toLowerCase().includes('date'));
   if (dateCol && row[dateCol]) {
     const dateStr = row[dateCol];
     const date = new Date(dateStr);
     if (isNaN(date.getTime())) {
-      row.errors.push('Invalid date format (use YYYY-MM-DD)');
+      row.errors.push('Invalid date format');
     }
+  }
+
+  // Check if row is completely empty
+  const hasData = columns.some(col => row[col] && row[col].toString().trim());
+  if (!hasData) {
+    row.errors.push('Empty row');
   }
 }
 
