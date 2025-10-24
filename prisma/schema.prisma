@@ -316,9 +316,9 @@ model EstimationInput {
   updatedAt               DateTime @updatedAt @map("updated_at")
 
   // Relationships
-  customer        Customer        @relation(fields: [customerId], references: [id], onDelete: Cascade)
-  reportingPeriod ReportingPeriod @relation(fields: [reportingPeriodId], references: [id], onDelete: Cascade)
-  creator         User            @relation(fields: [createdBy], references: [id])
+  customer              Customer        @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  reportingPeriod       ReportingPeriod @relation(fields: [reportingPeriodId], references: [id], onDelete: Cascade)
+  creator               User            @relation(fields: [createdBy], references: [id])
 
   @@unique([customerId, reportingPeriodId])
   @@map("estimation_inputs")

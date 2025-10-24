@@ -1,5 +1,5 @@
 import { EmissionFactorService } from './emissionFactors';
-import { db as prisma } from '../storage/storageAdapter';
+import { prisma } from '../config/database';
 
 export interface EstimationInputData {
   customerId: string;
@@ -297,16 +297,6 @@ export class EstimationService {
         customerId_reportingPeriodId: {
           customerId,
           reportingPeriodId
-        }
-      },
-      include: {
-        customer: true,
-        reportingPeriod: true,
-        creator: {
-          select: {
-            id: true,
-            email: true
-          }
         }
       }
     });

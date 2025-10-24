@@ -1,12 +1,12 @@
 import express from 'express';
-import { Prisma, PrismaClient } from '@prisma/client';
+import { Prisma } from '@prisma/client';
 import Joi from 'joi';
 import { createError } from '../middleware/errorHandler';
 import { authenticateToken, requireRole, AuthenticatedRequest } from '../middleware/auth';
 import { logger } from '../utils/logger';
+import { prisma } from '../config/database';
 
 const router = express.Router();
-const prisma = new PrismaClient();
 
 // Validation schemas
 const customerSchema = Joi.object({

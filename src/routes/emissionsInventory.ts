@@ -2,7 +2,7 @@ import express from 'express';
 import multer from 'multer';
 import path from 'path';
 import fs from 'fs';
-import { PrismaClient } from '@prisma/client';
+import { prisma } from '../config/database';
 import Joi from 'joi';
 import { createError } from '../middleware/errorHandler';
 import { authenticateToken, requireRole, AuthenticatedRequest } from '../middleware/auth';
@@ -11,7 +11,6 @@ import { IntelligentCSVParser } from '../services/intelligentCSVParser';
 import { logger } from '../utils/logger';
 
 const router = express.Router();
-const prisma = new PrismaClient();
 
 // Configure multer for file uploads
 const uploadDir = process.env.UPLOAD_DIR || './uploads';

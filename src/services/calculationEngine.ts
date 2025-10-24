@@ -1,8 +1,7 @@
-import { Prisma, PrismaClient, Activity, EmissionFactor } from '@prisma/client';
+import { Prisma, Activity, EmissionFactor } from '@prisma/client';
 import { EmissionFactorService } from './emissionFactors';
 import { logger } from '../utils/logger';
-
-const prisma = new PrismaClient();
+import { prisma } from '../config/database';
 
 export interface CalculationResult {
   activityId: string;

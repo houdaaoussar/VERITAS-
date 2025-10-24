@@ -1,7 +1,6 @@
-import { PrismaClient, EmissionFactor } from '@prisma/client';
+import { EmissionFactor } from '@prisma/client';
 import { logger } from '../utils/logger';
-
-const prisma = new PrismaClient();
+import { prisma } from '../config/database';
 
 export interface EmissionFactorData {
   category: string;
@@ -226,6 +225,32 @@ export class EmissionFactorService {
           factorData 
         });
       }
+    }
+  }
+
+  // Get emission factor by category (simplified method)
+  static async getFactorByCategory(
+    category: string,
+    geography: string = 'UK',
+    year: number = new Date().getFullYear()
+  ): Promise<EmissionFactor | null> {
+    try {
+      return await prisma.emissionFactor.findFirst({
+        where: {
+          category,
+          geography,
+          year
+        },
+        orderBy: { year: 'desc' }
+      });
+    } catch (error) {
+      logger.error('Failed to get emission factor by category', { 
+        error: (error as Error).message,
+        category,
+        geography,
+        year
+      });
+      return null;
     }
   }
 

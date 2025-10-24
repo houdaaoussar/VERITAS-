@@ -16,7 +16,7 @@ import { reportingRoutes } from './routes/reporting';
 import { customerRoutes } from './routes/customers';
 import { emissionsInventoryRoutes } from './routes/emissionsInventory';
 import { ingestRoutes } from './routes/ingest';
-// import { estimationRoutes } from './routes/estimations'; // Temporarily disabled - needs database integration
+import { estimationRoutes } from './routes/estimations';
 
 console.log('✅ All route modules imported successfully');
 
@@ -107,7 +107,7 @@ app.use('/api/reporting', apiLimiter, reportingRoutes);
 app.use('/api/customers', apiLimiter, customerRoutes);
 app.use('/api/emissions-inventory', apiLimiter, emissionsInventoryRoutes);
 app.use('/api/ingest', apiLimiter, ingestRoutes);
-// app.use('/api/estimations', apiLimiter, estimationRoutes); // Temporarily disabled - needs database integration
+app.use('/api/estimations', apiLimiter, estimationRoutes);
 console.log('✅ All routes registered successfully');
 
 // API health endpoint

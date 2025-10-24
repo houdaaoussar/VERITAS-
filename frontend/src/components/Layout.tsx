@@ -26,6 +26,7 @@ const navigation = [
   { name: 'Calculations', href: '/calculations', icon: CalculatorIcon },
   { name: 'Reports', href: '/reports', icon: DocumentTextIcon },
   { name: 'Emissions Report', href: '/emissions-report', icon: DocumentTextIcon },
+  { name: 'Estimation Input', href: '/estimation', icon: DocumentTextIcon },
   { name: 'Projects', href: '/projects', icon: ChartBarIcon },
   { name: 'Sites', href: '/sites', icon: BuildingOfficeIcon },
   { name: 'Upload', href: '/upload', icon: ArrowUpOnSquareIcon },

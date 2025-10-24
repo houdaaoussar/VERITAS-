@@ -4,14 +4,13 @@ import path from 'path';
 import fs from 'fs';
 import csv from 'csv-parser';
 import ExcelJS from 'exceljs';
-import { PrismaClient } from '@prisma/client';
 import Joi from 'joi';
 import { createError } from '../middleware/errorHandler';
 import { authenticateToken, requireRole, AuthenticatedRequest } from '../middleware/auth';
 import { logger } from '../utils/logger';
+import { prisma } from '../config/database';
 
 const router = express.Router();
-const prisma = new PrismaClient();
 
 // Configure multer for file uploads
 const uploadDir = process.env.UPLOAD_DIR || './uploads';

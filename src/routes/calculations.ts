@@ -1,13 +1,13 @@
 import express from 'express';
-import { Prisma, PrismaClient } from '@prisma/client';
+import { Prisma } from '@prisma/client';
 import Joi from 'joi';
 import { createError } from '../middleware/errorHandler';
 import { authenticateToken, requireRole, AuthenticatedRequest } from '../middleware/auth';
 import { CalculationEngine } from '../services/calculationEngine';
 import { logger } from '../utils/logger';
+import { prisma } from '../config/database';
 
 const router = express.Router();
-const prisma = new PrismaClient();
 
 const runCalculationSchema = Joi.object({
   customerId: Joi.string().uuid().required(),

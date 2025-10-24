@@ -114,7 +114,8 @@ router.post('/:customerId/:periodId/calculate', async (req, res) => {
     }
 
     // Calculate all estimations
-    const estimations = await EstimationService.calculateAllEstimations(estimationInput);
+    // Cast the database result to match the interface
+    const estimations = await EstimationService.calculateAllEstimations(estimationInput as any);
 
     // Get total
     const totalEmissions = EstimationService.getTotalEstimatedEmissions(estimations);

@@ -51,6 +51,7 @@ function App() {
                       <Route path="/emissions-inventory-upload" element={<EmissionsInventoryUploadPage />} />
                       <Route path="/settings" element={<SettingsPage />} />
                       <Route path="/calculator" element={<CalculatorPage />} />
+                      <Route path="/estimation" element={<EstimationInputPage />} />
                       <Route path="/reporting/:periodId/estimation" element={<EstimationInputPage />} />
                     </Routes>
                   </Suspense>

@@ -43,8 +43,12 @@ interface EstimatedEmission {
 }
 
 const EstimationInputPage: React.FC = () => {
-  const { customerId, periodId } = useParams<{ customerId: string; periodId: string }>();
   const navigate = useNavigate();
+  
+  const [customerId, setCustomerId] = useState<string>('');
+  const [periodId, setPeriodId] = useState<string>('');
+  const [customers, setCustomers] = useState<any[]>([]);
+  const [periods, setPeriods] = useState<any[]>([]);
   
   const [formData, setFormData] = useState<EstimationInputData>({
     avgWorkdaysPerYear: 220,
@@ -62,12 +66,57 @@ const EstimationInputPage: React.FC = () => {
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
-  // Load existing estimation data
+  // Load customers on mount
   useEffect(() => {
-    loadEstimationData();
+    loadCustomers();
+  }, []);
+
+  // Load periods when customer changes
+  useEffect(() => {
+    if (customerId) {
+      loadPeriods();
+    }
+  }, [customerId]);
+
+  // Load existing estimation data when both IDs are set
+  useEffect(() => {
+    if (customerId && periodId) {
+      loadEstimationData();
+    }
   }, [customerId, periodId]);
 
+  const loadCustomers = async () => {
+    try {
+      const response = await fetch('/api/customers');
+      if (response.ok) {
+        const data = await response.json();
+        setCustomers(data);
+        if (data.length > 0) {
+          setCustomerId(data[0].id);
+        }
+      }
+    } catch (error) {
+      console.error('Error loading customers:', error);
+    }
+  };
+
+  const loadPeriods = async () => {
+    try {
+      const response = await fetch(`/api/periods?customerId=${customerId}`);
+      if (response.ok) {
+        const data = await response.json();
+        setPeriods(data);
+        if (data.length > 0) {
+          setPeriodId(data[0].id);
+        }
+      }
+    } catch (error) {
+      console.error('Error loading periods:', error);
+    }
+  };
+
   const loadEstimationData = async () => {
+    if (!customerId || !periodId) return;
     try {
       const response = await fetch(`/api/estimations/${customerId}/${periodId}`);
       if (response.ok) {
@@ -97,6 +146,10 @@ const EstimationInputPage: React.FC = () => {
   };
 
   const handlePreview = async () => {
+    if (!customerId || !periodId) {
+      setMessage({ type: 'error', text: 'Please select a customer and reporting period' });
+      return;
+    }
     if (!validateTransportSplit()) return;
     
     setLoading(true);
@@ -123,6 +176,10 @@ const EstimationInputPage: React.FC = () => {
   };
 
   const handleSave = async () => {
+    if (!customerId || !periodId) {
+      setMessage({ type: 'error', text: 'Please select a customer and reporting period' });
+      return;
+    }
     if (!validateTransportSplit()) return;
     
     setSaving(true);
@@ -174,6 +231,39 @@ const EstimationInputPage: React.FC = () => {
             >
               ← Back
             </button>
+          </div>
+          
+          {/* Customer and Period Selection */}
+          <div className="mt-6 grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Customer</label>
+              <select
+                value={customerId}
+                onChange={(e) => setCustomerId(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="">Select a customer...</option>
+                {customers.map(customer => (
+                  <option key={customer.id} value={customer.id}>{customer.name}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Reporting Period</label>
+              <select
+                value={periodId}
+                onChange={(e) => setPeriodId(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500"
+                disabled={!customerId}
+              >
+                <option value="">Select a period...</option>
+                {periods.map(period => (
+                  <option key={period.id} value={period.id}>
+                    {new Date(period.fromDate).toLocaleDateString()} - {new Date(period.toDate).toLocaleDateString()}
+                  </option>
+                ))}
+              </select>
+            </div>
           </div>
         </div>
 

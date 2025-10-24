@@ -1,14 +1,13 @@
 import express from 'express';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
-import { PrismaClient } from '@prisma/client';
 import Joi from 'joi';
 import { createError } from '../middleware/errorHandler';
 import { authenticateToken, AuthenticatedRequest } from '../middleware/auth';
 import { logger } from '../utils/logger';
+import { prisma } from '../config/database';
 
 const router = express.Router();
-const prisma = new PrismaClient();
 
 // Validation schemas
 const loginSchema = Joi.object({
